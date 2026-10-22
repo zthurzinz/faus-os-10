@@ -1,0 +1,120 @@
+/** FAUS OS — Marketing. Consultas somente leitura; não usa aba_()/bootstrap. */
+const FAUS_MARKETING_ = Object.freeze({
+  spreadsheetId: '1B8KvlFdP-pQGSHmOyRVDMXgQfDy4dBY39Y4Tf2WdESg',
+  timezone: 'America/Sao_Paulo',
+  calendario: ['ConteudoID', 'Semana', 'Data planejada (ISO)', 'Dia', 'Período', 'Formato', 'Linha editorial', 'Tema / título', 'Público-alvo', 'Objetivo', 'Texto / roteiro completo', 'Mídia necessária', 'Instrução de edição', 'Canais', 'Responsável', 'Status', 'Próxima ação', 'Observações / vínculo'],
+  prompts: ['PromptID', 'Nome', 'Etapa / quando usar', 'Objetivo', 'PROMPT COMPLETO — COPIAR', 'Versão', 'Status', 'Atualizado em', 'Notas operacionais'],
+  conteudos: ['ConteudoID', 'MetaID', 'Unidade', 'Tema / ideia', 'Formato', 'Canal previsto', 'Referência / link', 'Responsável', 'Prazo de produção', 'Status', 'Próxima ação', 'Observações']
+});
+
+function marketingNormalizar_(valor) {
+  return String(valor == null ? '' : valor).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function marketingLerAba_(nome, colunas) {
+  let ss;
+  try {
+    ss = SpreadsheetApp.openById(FAUS_MARKETING_.spreadsheetId);
+  } catch (e) {
+    throw new Error('Marketing: não foi possível acessar a planilha oficial. Verifique se a conta executora tem permissão de leitura e se o projeto Apps Script está autorizado.');
+  }
+  let aba, valores;
+  try {
+    aba = ss.getSheetByName(nome);
+    if (!aba) throw new Error('ABA_AUSENTE');
+    valores = aba.getDataRange().getValues();
+  } catch (e) {
+    if (e.message === 'ABA_AUSENTE') throw new Error('Marketing: a aba ' + nome + ' não foi encontrada na planilha oficial.');
+    throw new Error('Marketing: falha ao ler a aba ' + nome + '. Confira a conexão, as permissões e tente novamente.');
+  }
+  const mapa = Object.create(null);
+  (valores[0] || []).forEach((cabecalho, i) => {
+    const chave = marketingNormalizar_(cabecalho);
+    if (!chave) return;
+    if (Object.prototype.hasOwnProperty.call(mapa, chave)) throw new Error('Marketing: cabeçalho duplicado em ' + nome + ': ' + cabecalho);
+    mapa[chave] = i;
+  });
+  const faltantes = colunas.filter(c => !Object.prototype.hasOwnProperty.call(mapa, marketingNormalizar_(c)));
+  if (faltantes.length) throw new Error('Marketing: cabeçalhos ausentes em ' + nome + ': ' + faltantes.join(', ') + '. Nenhuma alteração foi feita.');
+  const timezone = ss.getSpreadsheetTimeZone() || FAUS_MARKETING_.timezone;
+  return valores.slice(1).filter(linha => linha.some(v => v !== '' && v != null)).map(linha => {
+    const obj = {};
+    colunas.forEach(c => {
+      const valor = linha[mapa[marketingNormalizar_(c)]];
+      obj[c] = valor instanceof Date
+        ? (isNaN(valor.getTime()) ? '' : Utilities.formatDate(valor, timezone, 'yyyy-MM-dd'))
+        : String(valor == null ? '' : valor);
+    });
+    return obj;
+  });
+}
+
+function marketingDataISO_(valor) {
+  const texto = String(valor || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) return '';
+  const data = new Date(texto + 'T12:00:00Z');
+  return !isNaN(data.getTime()) && data.toISOString().slice(0, 10) === texto ? texto : '';
+}
+
+function marketingSomarDias_(iso, dias) {
+  const data = new Date(iso + 'T12:00:00Z');
+  data.setUTCDate(data.getUTCDate() + dias);
+  return data.toISOString().slice(0, 10);
+}
+
+function marketingSegunda_(iso) {
+  const dia = new Date(iso + 'T12:00:00Z').getUTCDay();
+  return marketingSomarDias_(iso, -((dia + 6) % 7));
+}
+
+function marketingConcluido_(status) {
+  return ['publicado', 'publicada', 'concluido', 'concluida', 'finalizado', 'finalizada'].indexOf(marketingNormalizar_(status)) !== -1;
+}
+
+function fausMarketingCalendario() {
+  const linhas = marketingLerAba_('CALENDARIO_EDITORIAL', FAUS_MARKETING_.calendario);
+  const itens = [], semData = [];
+  let reservas = 0;
+  linhas.forEach(r => {
+    if (marketingNormalizar_(r.Status) === 'reserva' || marketingNormalizar_(r['Período']) === 'reserva') { reservas++; return; }
+    const item = {
+      id: r.ConteudoID, semanaOriginal: r.Semana, data: marketingDataISO_(r['Data planejada (ISO)']),
+      dataOriginal: r['Data planejada (ISO)'], dia: r.Dia, periodo: r['Período'], formato: r.Formato,
+      linhaEditorial: r['Linha editorial'], titulo: r['Tema / título'], publico: r['Público-alvo'],
+      objetivo: r.Objetivo, texto: r['Texto / roteiro completo'], midia: r['Mídia necessária'],
+      edicao: r['Instrução de edição'], canais: r.Canais, responsavel: r['Responsável'],
+      status: r.Status, proximaAcao: r['Próxima ação'], observacoes: r['Observações / vínculo'],
+      concluido: marketingConcluido_(r.Status)
+    };
+    if (!item.data) { semData.push(item); return; }
+    item.semana = marketingSegunda_(item.data);
+    itens.push(item);
+  });
+  const semanas = Array.from(new Set(itens.map(i => i.semana))).sort().map(inicio => ({ inicio: inicio, fim: marketingSomarDias_(inicio, 6) }));
+  const hoje = Utilities.formatDate(new Date(), FAUS_MARKETING_.timezone, 'yyyy-MM-dd');
+  let semanaInicial = '', menorDistancia = Infinity;
+  semanas.forEach(s => {
+    const limite = hoje < s.inicio ? s.inicio : hoje > s.fim ? s.fim : hoje;
+    const distancia = Math.abs(new Date(limite + 'T12:00:00Z') - new Date(hoje + 'T12:00:00Z'));
+    // Empate: preferir o planejamento futuro.
+    if (distancia <= menorDistancia) { menorDistancia = distancia; semanaInicial = s.inicio; }
+  });
+  return { itens: itens, semanas: semanas, semanaInicial: semanaInicial, hoje: hoje, reservas: reservas, semData: semData };
+}
+
+function fausMarketingPrompts() {
+  return { itens: marketingLerAba_('PROMPTS', FAUS_MARKETING_.prompts)
+    .filter(r => ['P01', 'P02', 'P03'].indexOf(r.PromptID.trim().toUpperCase()) !== -1 && ['ativo', 'ativa'].indexOf(marketingNormalizar_(r.Status)) !== -1)
+    .map(r => ({ id: r.PromptID, nome: r.Nome, quando: r['Etapa / quando usar'], objetivo: r.Objetivo,
+      texto: r['PROMPT COMPLETO — COPIAR'], versao: r['Versão'], status: r.Status,
+      atualizado: r['Atualizado em'], notas: r['Notas operacionais'] }))
+    .sort((a, b) => a.id.localeCompare(b.id)) };
+}
+
+function fausMarketingGaveta() {
+  return { itens: marketingLerAba_('CONTEUDOS', FAUS_MARKETING_.conteudos)
+    .filter(r => r.ConteudoID.trim().toUpperCase() !== 'TESTE-001')
+    .map(r => ({ id: r.ConteudoID, meta: r.MetaID, unidade: r.Unidade, titulo: r['Tema / ideia'], formato: r.Formato,
+      canais: r['Canal previsto'], referencia: r['Referência / link'], responsavel: r['Responsável'],
+      prazo: r['Prazo de produção'], status: r.Status, proximaAcao: r['Próxima ação'], observacoes: r['Observações'] })) };
+}
