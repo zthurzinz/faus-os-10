@@ -1,0 +1,1513 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d2019">
+  <title>FAUS OS Mobile</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+
+  <style>
+    :root {
+      --forest: #0d2019;
+      --forest-2: #143629;
+      --leaf: #236946;
+      --leaf-2: #2f8057;
+      --soil: #7a5a36;
+      --gold: #d6a13d;
+      --sand: #f4efe4;
+      --clay: #efe1cb;
+      --bg: #f7f5ef;
+      --card: #ffffff;
+      --card-soft: #fbfaf6;
+      --line: #e4e0d6;
+      --text: #14231c;
+      --muted: #64736b;
+      --danger: #b5392e;
+      --danger-bg: #fae9e5;
+      --success-bg: #e2f2e7;
+      --success: #17613b;
+      --shadow: 0 14px 34px rgba(13, 32, 25, .12);
+      --shadow-sm: 0 7px 18px rgba(13, 32, 25, .08);
+      --tap: 48px;
+      color: var(--text);
+      font-family: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-height: 100%; background: var(--forest); }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(13,32,25,.98) 0, rgba(20,54,41,.98) 230px, var(--bg) 231px),
+        var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      touch-action: manipulation;
+    }
+    body, button, input, textarea, select { font: inherit; }
+    button, input, textarea, select {
+      border-radius: 12px;
+      border: 1px solid var(--line);
+    }
+    button {
+      min-height: var(--tap);
+      border: 0;
+      background: var(--card);
+      color: inherit;
+      cursor: pointer;
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease, opacity .16s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active { transform: scale(.98); }
+    input, textarea, select {
+      width: 100%;
+      min-height: var(--tap);
+      padding: 12px 13px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+    textarea { min-height: 96px; resize: vertical; }
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .app {
+      width: 100%;
+      min-height: 100vh;
+      padding:
+        calc(14px + env(safe-area-inset-top))
+        max(14px, env(safe-area-inset-right))
+        calc(94px + env(safe-area-inset-bottom))
+        max(14px, env(safe-area-inset-left));
+    }
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: #fff;
+      margin-bottom: 16px;
+    }
+    .brand {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+    .mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #dff29a, #b7d86a);
+      color: var(--forest);
+      font-size: 18px;
+      font-weight: 900;
+      box-shadow: 0 10px 22px rgba(0,0,0,.22);
+      flex: 0 0 auto;
+    }
+    .brand strong {
+      display: block;
+      line-height: 1;
+      letter-spacing: .12em;
+      font-size: 17px;
+      font-weight: 900;
+    }
+    .brand span {
+      display: block;
+      margin-top: 4px;
+      color: #b7cbbf;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .icon-btn {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.1);
+      color: #fff;
+      font-size: 19px;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+    .hero {
+      color: #fff;
+      padding: 5px 2px 10px;
+    }
+    .eyebrow {
+      margin: 0 0 6px;
+      color: #d8bd80;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      margin-bottom: 8px;
+      font-size: clamp(25px, 8vw, 34px);
+      line-height: 1.06;
+      letter-spacing: 0;
+    }
+    .hero p {
+      max-width: 38rem;
+      margin-bottom: 0;
+      color: #d9e4df;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .quick-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 18px 0;
+    }
+    .action {
+      min-height: 54px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 900;
+      box-shadow: var(--shadow-sm);
+    }
+    .action.primary { background: var(--gold); color: #1f1a10; }
+    .action.dark { background: var(--forest); color: #fff; }
+    .action.light { background: #fff; color: var(--forest); border: 1px solid var(--line); }
+    .action.ghost { background: var(--card-soft); color: var(--leaf); border: 1px solid var(--line); box-shadow: none; }
+    .action.full { width: 100%; }
+
+    .view { display: none; animation: rise .2s ease both; }
+    .view.active { display: block; }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .stack { display: grid; gap: 12px; }
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 20px 0 10px;
+    }
+    .section-head h2 {
+      margin: 0;
+      color: var(--text);
+      font-size: 18px;
+      line-height: 1.2;
+    }
+    .section-head small {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 15px;
+      box-shadow: var(--shadow-sm);
+    }
+    .metric {
+      min-height: 112px;
+      display: grid;
+      align-content: space-between;
+      gap: 10px;
+    }
+    .metric span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .metric strong {
+      display: block;
+      color: var(--text);
+      font-size: clamp(20px, 6vw, 26px);
+      line-height: 1.04;
+      overflow-wrap: anywhere;
+    }
+    .metric em {
+      color: var(--muted);
+      font-size: 11px;
+      font-style: normal;
+      font-weight: 700;
+    }
+    .metric.good { border-color: rgba(35,105,70,.25); background: linear-gradient(180deg, #fff, #f5fbf7); }
+    .metric.warn { border-color: rgba(214,161,61,.4); background: linear-gradient(180deg, #fff, #fff8ea); }
+    .metric.bad { border-color: rgba(181,57,46,.24); background: linear-gradient(180deg, #fff, #fff4f1); }
+
+    .list-card {
+      display: grid;
+      gap: 10px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: var(--shadow-sm);
+    }
+    .list-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .list-top strong {
+      min-width: 0;
+      font-size: 15px;
+      line-height: 1.28;
+      overflow-wrap: anywhere;
+    }
+    .list-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: var(--sand);
+      color: var(--soil);
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .pill.green { background: var(--success-bg); color: var(--success); }
+    .pill.red { background: var(--danger-bg); color: var(--danger); }
+    .pill.dark { background: var(--forest); color: #fff; }
+    .pill.gold { background: #fff3d7; color: #865f12; }
+    .empty {
+      padding: 20px 16px;
+      border: 1px dashed #d6d0c1;
+      border-radius: 16px;
+      background: rgba(255,255,255,.58);
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 2px 0 8px;
+      scrollbar-width: none;
+    }
+    .filters::-webkit-scrollbar { display: none; }
+    .chip {
+      min-height: 40px;
+      padding: 8px 13px;
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--muted);
+      border: 1px solid var(--line);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+      box-shadow: none;
+    }
+    .chip.active {
+      background: var(--forest);
+      color: #fff;
+      border-color: var(--forest);
+    }
+
+    .task-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+    }
+    .check {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: var(--sand);
+      color: var(--soil);
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: none;
+    }
+    .check.done { background: var(--success-bg); color: var(--success); }
+    .meta-controls {
+      display: grid;
+      grid-template-columns: 52px minmax(72px, 1fr) 52px;
+      align-items: center;
+      gap: 8px;
+      margin-top: 5px;
+    }
+    .meta-controls button {
+      border-radius: 14px;
+      background: var(--sand);
+      color: var(--soil);
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: none;
+    }
+    .progress {
+      height: 9px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: #ebe6da;
+    }
+    .progress span {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--leaf), var(--gold));
+      border-radius: inherit;
+      transition: width .25s ease;
+    }
+
+    #map {
+      width: 100%;
+      height: min(64vh, 480px);
+      min-height: 360px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      background: #d8ded6;
+    }
+    .map-help {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 40;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding:
+        8px
+        max(9px, env(safe-area-inset-right))
+        calc(8px + env(safe-area-inset-bottom))
+        max(9px, env(safe-area-inset-left));
+      background: rgba(255,255,255,.92);
+      border-top: 1px solid rgba(13,32,25,.1);
+      box-shadow: 0 -10px 28px rgba(13,32,25,.13);
+      backdrop-filter: blur(16px);
+    }
+    .tab {
+      min-width: 0;
+      min-height: 58px;
+      display: grid;
+      place-items: center;
+      gap: 2px;
+      padding: 6px 3px;
+      border-radius: 16px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      box-shadow: none;
+    }
+    .tab b {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 25px;
+      border-radius: 12px;
+      font-size: 13px;
+      background: transparent;
+    }
+    .tab.active {
+      color: var(--forest);
+      background: #f0eadf;
+    }
+    .tab.active b {
+      background: var(--forest);
+      color: #fff;
+    }
+
+    .sheet {
+      width: min(100vw, 560px);
+      max-height: min(88vh, 720px);
+      margin: auto auto 0;
+      padding: 0;
+      border: 0;
+      border-radius: 22px 22px 0 0;
+      background: var(--bg);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .sheet::backdrop { background: rgba(13,32,25,.58); backdrop-filter: blur(3px); }
+    .sheet-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 16px 16px 10px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+    }
+    .sheet-head h2 { margin: 0; font-size: 18px; }
+    .close {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: #fff;
+      color: var(--forest);
+      box-shadow: none;
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .sheet-body {
+      max-height: calc(min(88vh, 720px) - 74px);
+      overflow: auto;
+      padding: 15px 16px calc(18px + env(safe-area-inset-bottom));
+    }
+    .form-grid { display: grid; gap: 13px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .modal-panel { display: none; }
+    .modal-panel.active { display: block; }
+
+    .toast {
+      position: fixed;
+      left: 14px;
+      right: 14px;
+      bottom: calc(84px + env(safe-area-inset-bottom));
+      z-index: 70;
+      padding: 13px 15px;
+      border-radius: 15px;
+      background: var(--forest);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(18px);
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: var(--danger); }
+    .loading {
+      position: fixed;
+      top: calc(12px + env(safe-area-inset-top));
+      left: 50%;
+      z-index: 75;
+      transform: translate(-50%, -12px);
+      padding: 9px 13px;
+      border-radius: 999px;
+      background: rgba(13,32,25,.92);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    .loading.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (min-width: 680px) {
+      .app {
+        width: min(680px, 100%);
+        margin: 0 auto;
+      }
+      .sheet { border-radius: 22px; margin: auto; }
+      .sheet-body { padding-bottom: 18px; }
+    }
+
+    @media (max-width: 380px) {
+      .grid-2, .quick-row, .form-row { grid-template-columns: 1fr; }
+      .brand span { white-space: normal; }
+      .tab { font-size: 9px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading" class="loading">Sincronizando</div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <main class="app">
+    <header class="top">
+      <div class="brand">
+        <div class="mark">F</div>
+        <div>
+          <strong>FAUS OS</strong>
+          <span id="syncLabel">Android / Operacao em campo</span>
+        </div>
+      </div>
+      <button class="icon-btn" type="button" data-action="refresh" aria-label="Atualizar">↻</button>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow" id="viewEyebrow">Central operacional</p>
+      <h1 id="viewTitle">Painel mobile</h1>
+      <p id="heroMessage">Carregando os dados do FAUS OS.</p>
+    </section>
+
+    <section id="view-dashboard" class="view active" data-title="Painel mobile" data-eyebrow="Central operacional">
+      <div class="quick-row">
+        <button class="action primary" type="button" data-open="financeiro">+ Financeiro</button>
+        <button class="action dark" type="button" data-open="afazer">+ Afazer</button>
+      </div>
+
+      <div id="metrics" class="grid-2"></div>
+
+      <div class="section-head">
+        <h2>Hoje no radar</h2>
+        <small id="todayLabel"></small>
+      </div>
+      <div id="dashboardFeed" class="stack"></div>
+    </section>
+
+    <section id="view-financeiro" class="view" data-title="Financeiro" data-eyebrow="Controle de caixa">
+      <div class="quick-row">
+        <button class="action primary" type="button" data-open="financeiro" data-type="Receita">+ Receita</button>
+        <button class="action dark" type="button" data-open="financeiro" data-type="Despesa">+ Despesa</button>
+      </div>
+      <div class="filters" aria-label="Filtros do financeiro">
+        <button class="chip active" type="button" data-fin-filter="todos">Todos</button>
+        <button class="chip" type="button" data-fin-filter="pendentes">Pendentes</button>
+        <button class="chip" type="button" data-fin-filter="receitas">Receitas</button>
+        <button class="chip" type="button" data-fin-filter="despesas">Despesas</button>
+      </div>
+      <div id="financeiroList" class="stack"></div>
+    </section>
+
+    <section id="view-afazeres" class="view" data-title="Afazeres" data-eyebrow="Execucao da semana">
+      <div class="quick-row">
+        <button class="action dark" type="button" data-open="afazer">+ Afazer</button>
+        <button class="action light" type="button" data-open="projeto">+ Projeto</button>
+        <button class="action light" type="button" data-action="refresh">Atualizar</button>
+      </div>
+      <div class="filters" aria-label="Filtros de afazeres">
+        <button class="chip active" type="button" data-task-filter="pendentes">Pendentes</button>
+        <button class="chip" type="button" data-task-filter="hoje">Hoje</button>
+        <button class="chip" type="button" data-task-filter="metas">Metas</button>
+        <button class="chip" type="button" data-task-filter="todos">Todos</button>
+      </div>
+      <div id="tarefasList" class="stack"></div>
+    </section>
+
+    <section id="view-mapa" class="view" data-title="Mapa operacional" data-eyebrow="Obras e oportunidades">
+      <div class="quick-row">
+        <button class="action primary" type="button" data-open="ponto">+ Ponto</button>
+        <button class="action light" type="button" data-action="load-map">Recarregar</button>
+      </div>
+      <div id="map"></div>
+      <p class="map-help">Toque no mapa para preencher latitude e longitude no cadastro de ponto.</p>
+      <div class="section-head">
+        <h2>Pontos cadastrados</h2>
+        <small id="mapCount">0 pontos</small>
+      </div>
+      <div id="mapList" class="stack"></div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Navegacao principal">
+    <button class="tab active" type="button" data-view="dashboard"><b>▦</b>Painel</button>
+    <button class="tab" type="button" data-view="financeiro"><b>R$</b>Caixa</button>
+    <button class="tab" type="button" data-view="afazeres"><b>✓</b>Afazeres</button>
+    <button class="tab" type="button" data-view="mapa"><b>⌖</b>Mapa</button>
+  </nav>
+
+  <dialog id="sheet" class="sheet">
+    <div class="sheet-head">
+      <h2 id="sheetTitle">Novo registro</h2>
+      <button class="close" type="button" data-action="close-sheet" aria-label="Fechar">×</button>
+    </div>
+    <div class="sheet-body">
+      <section id="panel-financeiro" class="modal-panel">
+        <form id="formFinanceiro" class="form-grid">
+          <label>Tipo
+            <select name="Tipo" required>
+              <option>Receita</option>
+              <option>Despesa</option>
+            </select>
+          </label>
+          <label>Descricao
+            <input name="Descricao" required autocomplete="off" placeholder="Ex.: Diesel, frete, recebimento">
+          </label>
+          <div class="form-row">
+            <label>Valor
+              <input name="Valor" required inputmode="decimal" placeholder="0,00">
+            </label>
+            <label>Vencimento
+              <input name="Vencimento" type="date" required>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Categoria
+              <input name="Categoria" autocomplete="off" placeholder="Operacao">
+            </label>
+            <label>Situacao
+              <select name="Situacao">
+                <option>Pendente</option>
+                <option>Pago</option>
+                <option>Recebido</option>
+                <option>Cancelado</option>
+              </select>
+            </label>
+          </div>
+          <label>Maquina
+            <input name="Maquina" autocomplete="off" placeholder="Opcional">
+          </label>
+          <label>Observacoes
+            <textarea name="Observacoes" placeholder="Detalhes do lancamento"></textarea>
+          </label>
+          <button class="action primary full" type="submit">Salvar financeiro</button>
+        </form>
+      </section>
+
+      <section id="panel-afazer" class="modal-panel">
+        <form id="formAfazer" class="form-grid">
+          <label>Titulo
+            <input name="Titulo" required autocomplete="off" placeholder="Ex.: Cobrar retorno da obra">
+          </label>
+          <label>Descricao
+            <textarea name="Descricao" placeholder="Contexto rapido"></textarea>
+          </label>
+          <div class="form-row">
+            <label>Area
+              <select name="Area">
+                <option>Geral</option>
+                <option>Comercial</option>
+                <option>Financeiro</option>
+                <option>Operacao</option>
+                <option>Direcao</option>
+              </select>
+            </label>
+            <label>Prioridade
+              <select name="Prioridade">
+                <option>Normal</option>
+                <option>Prioritario</option>
+                <option>Baixa</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Prazo
+              <input name="Prazo" type="date">
+            </label>
+            <label>Tipo
+              <select name="TipoAfazer">
+                <option value="comum">Comum</option>
+                <option value="meta">Meta semanal</option>
+              </select>
+            </label>
+          </div>
+          <label>Projeto
+            <select name="ProjetoID" id="mobileAfazerProjeto">
+              <option value="">Sem projeto</option>
+            </select>
+          </label>
+          <label>Meta semanal
+            <input name="MetaSemanalQtd" inputmode="numeric" placeholder="Quantidade, se for meta">
+          </label>
+          <button class="action dark full" type="submit">Salvar afazer</button>
+        </form>
+      </section>
+
+      <section id="panel-projeto" class="modal-panel">
+        <form id="formProjeto" class="form-grid">
+          <label>Nome do projeto
+            <input name="Nome" required autocomplete="off" placeholder="Ex.: Retroescavadeira">
+          </label>
+          <label>Descricao
+            <textarea name="Descricao" placeholder="Opcional"></textarea>
+          </label>
+          <button class="action dark full" type="submit">Salvar projeto</button>
+        </form>
+      </section>
+
+      <section id="panel-ponto" class="modal-panel">
+        <form id="formPonto" class="form-grid">
+          <label>Nome
+            <input name="Nome" required autocomplete="off" placeholder="Ex.: Obra bairro Centro">
+          </label>
+          <div class="form-row">
+            <label>Tipo
+              <select name="Tipo" required>
+                <option>Obra</option>
+                <option>Cliente</option>
+                <option>Oportunidade</option>
+                <option>Base</option>
+                <option>Outro</option>
+              </select>
+            </label>
+            <label>Status
+              <select name="Status">
+                <option>Ativo</option>
+                <option>Em visita</option>
+                <option>Orcamento</option>
+                <option>Finalizado</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Latitude
+              <input name="Latitude" required inputmode="decimal" placeholder="-23.000000">
+            </label>
+            <label>Longitude
+              <input name="Longitude" required inputmode="decimal" placeholder="-46.000000">
+            </label>
+          </div>
+          <label>Endereco
+            <input name="Endereco" autocomplete="off" placeholder="Rua, bairro, cidade">
+          </label>
+          <label>Observacoes
+            <textarea name="Observacoes" placeholder="Acesso, maquina indicada, contato"></textarea>
+          </label>
+          <button class="action primary full" type="submit">Salvar ponto</button>
+        </form>
+      </section>
+    </div>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const state = {
+        data: null,
+        view: 'dashboard',
+        finFilter: 'todos',
+        taskFilter: 'pendentes',
+        map: null,
+        mapLayer: null,
+        mapLoaded: false,
+        mapPoints: [],
+        lastMapTap: null
+      };
+
+      const $ = selector => document.querySelector(selector);
+      const $$ = selector => Array.from(document.querySelectorAll(selector));
+
+      const escapeHtml = value => String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[char]));
+
+      const money = value => Number(value || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+
+      const todayYmd = () => {
+        const date = new Date();
+        date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+        return date.toISOString().slice(0, 10);
+      };
+
+      const dateYmd = value => {
+        if (!value) return '';
+        if (Object.prototype.toString.call(value) === '[object Date]') {
+          const date = new Date(value);
+          date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+          return date.toISOString().slice(0, 10);
+        }
+        const raw = String(value);
+        if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+        const parsed = new Date(raw);
+        if (!Number.isNaN(parsed.getTime())) {
+          parsed.setMinutes(parsed.getMinutes() - parsed.getTimezoneOffset());
+          return parsed.toISOString().slice(0, 10);
+        }
+        return raw.slice(0, 10);
+      };
+
+      const dateBr = value => {
+        const ymd = dateYmd(value);
+        if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return 'Sem data';
+        const parts = ymd.split('-');
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      };
+
+      const normalize = value => String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+      const asList = value => Array.isArray(value) ? value : [];
+
+      function toast(message, isError) {
+        const el = $('#toast');
+        el.textContent = message;
+        el.className = 'toast show' + (isError ? ' error' : '');
+        clearTimeout(toast.timer);
+        toast.timer = setTimeout(() => {
+          el.className = 'toast';
+        }, 3600);
+      }
+
+      function loading(on) {
+        $('#loading').classList.toggle('show', !!on);
+      }
+
+      function server(fn, ...args) {
+        return new Promise((resolve, reject) => {
+          if (typeof google === 'undefined' || !google.script || !google.script.run) {
+            reject(new Error('Ambiente Google Apps Script nao detectado.'));
+            return;
+          }
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(error => reject(new Error(error && error.message ? error.message : String(error))))
+            [fn](...args);
+        });
+      }
+
+      function formObject(form) {
+        const data = {};
+        new FormData(form).forEach((value, key) => {
+          data[key] = String(value).trim();
+        });
+        return data;
+      }
+
+      function setView(view) {
+        state.view = view;
+        $$('.view').forEach(el => el.classList.toggle('active', el.id === `view-${view}`));
+        $$('.tab').forEach(el => el.classList.toggle('active', el.dataset.view === view));
+
+        const active = $(`#view-${view}`);
+        $('#viewTitle').textContent = active ? active.dataset.title : 'FAUS OS';
+        $('#viewEyebrow').textContent = active ? active.dataset.eyebrow : 'Operacao';
+
+        if (view === 'mapa') {
+          loadMap();
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      async function loadAll(message) {
+        loading(true);
+        try {
+          state.data = await server('fausBootstrap');
+          render();
+          if (message) toast(message);
+        } catch (error) {
+          toast(`Erro ao carregar: ${error.message}`, true);
+        } finally {
+          loading(false);
+        }
+      }
+
+      function render() {
+        renderHero();
+        renderMetrics();
+        renderDashboardFeed();
+        renderFinanceiro();
+        refreshProjectSelects();
+        renderTarefas();
+        renderMapList();
+        $('#todayLabel').textContent = dateBr(todayYmd());
+        const meta = state.data && state.data.meta ? state.data.meta : {};
+        $('#syncLabel').textContent = `${meta.nome || 'FAUS OS'} ${meta.versao || ''}`.trim();
+      }
+
+      function renderHero() {
+        const resumo = state.data && state.data.resumo ? state.data.resumo : {};
+        if (resumo.contasVencidas > 0) {
+          $('#heroMessage').textContent = `${resumo.contasVencidas} conta(s) vencida(s) somando ${money(resumo.valorVencido)}.`;
+          return;
+        }
+        if (resumo.acoesVencidas > 0) {
+          $('#heroMessage').textContent = `${resumo.acoesVencidas} acao(oes) comercial(is) atrasada(s) precisam de retorno.`;
+          return;
+        }
+        $('#heroMessage').textContent = 'Dados sincronizados para consulta rapida em campo.';
+      }
+
+      function renderMetrics() {
+        const resumo = state.data && state.data.resumo ? state.data.resumo : {};
+        const cards = [
+          ['Entradas mes', money(resumo.receitasMes), 'Recebido', 'good'],
+          ['Saidas mes', money(resumo.despesasMes), 'Pago', 'warn'],
+          ['Resultado', money(resumo.resultadoMes), resumo.resultadoMes >= 0 ? 'Positivo' : 'Negativo', resumo.resultadoMes >= 0 ? 'good' : 'bad'],
+          ['Vencidas', money(resumo.valorVencido), `${resumo.contasVencidas || 0} conta(s)`, resumo.contasVencidas ? 'bad' : 'good']
+        ];
+        $('#metrics').innerHTML = cards.map(card => `
+          <article class="card metric ${card[3]}">
+            <span>${escapeHtml(card[0])}</span>
+            <strong>${escapeHtml(card[1])}</strong>
+            <em>${escapeHtml(card[2])}</em>
+          </article>
+        `).join('');
+      }
+
+      function renderDashboardFeed() {
+        const resumo = state.data && state.data.resumo ? state.data.resumo : {};
+        const tasks = activeTasks().filter(task => !taskDone(task)).slice(0, 3);
+        const bills = asList(resumo.proximasContasPagar).slice(0, 3);
+        const actions = asList(resumo.proximasAcoes).slice(0, 3);
+        const blocks = [];
+
+        if (bills.length) {
+          blocks.push(...bills.map(item => financeCard(item)));
+        }
+        if (tasks.length) {
+          blocks.push(...tasks.map(task => taskCard(task)));
+        }
+        if (actions.length) {
+          blocks.push(...actions.map(action => `
+            <article class="list-card">
+              <div class="list-top">
+                <strong>${escapeHtml(action.Titulo || action.ClienteNome || 'Acao comercial')}</strong>
+                <span class="pill gold">${escapeHtml(dateBr(action.DataProximaAcao))}</span>
+              </div>
+              <div class="list-meta">
+                <span>${escapeHtml(action.ClienteNome || 'Sem cliente')}</span>
+                <span>${escapeHtml(action.ProximaAcao || 'Proxima acao')}</span>
+              </div>
+            </article>
+          `));
+        }
+
+        $('#dashboardFeed').innerHTML = blocks.length ? blocks.join('') : '<div class="empty">Nada urgente agora. O painel esta limpo.</div>';
+      }
+
+      function financialRows() {
+        return asList(state.data && state.data.financeiro)
+          .filter(item => normalize(item.Ativo || 'Sim') !== 'nao')
+          .sort((a, b) => String(dateYmd(b.Vencimento || b.CriadoEm)).localeCompare(String(dateYmd(a.Vencimento || a.CriadoEm))));
+      }
+
+      function isPaid(item) {
+        const status = normalize(item.Situacao);
+        return ['pago', 'paga', 'recebido', 'recebida'].includes(status);
+      }
+
+      function renderFinanceiro() {
+        let rows = financialRows();
+        if (state.finFilter === 'pendentes') rows = rows.filter(item => !isPaid(item) && normalize(item.Situacao) !== 'cancelado');
+        if (state.finFilter === 'receitas') rows = rows.filter(item => item.Tipo === 'Receita');
+        if (state.finFilter === 'despesas') rows = rows.filter(item => item.Tipo === 'Despesa');
+        rows = rows.slice(0, 30);
+        $('#financeiroList').innerHTML = rows.length ? rows.map(financeCard).join('') : '<div class="empty">Nenhum lancamento neste filtro.</div>';
+      }
+
+      function financeCard(item) {
+        const paid = isPaid(item);
+        const isExpense = item.Tipo === 'Despesa';
+        const valueClass = isExpense ? 'red' : 'green';
+        const statusClass = paid ? 'green' : (dateYmd(item.Vencimento) < todayYmd() ? 'red' : 'gold');
+        return `
+          <article class="list-card">
+            <div class="list-top">
+              <strong>${escapeHtml(item.Descricao || 'Lancamento financeiro')}</strong>
+              <span class="pill ${valueClass}">${escapeHtml(money(item.Valor))}</span>
+            </div>
+            <div class="list-meta">
+              <span>${escapeHtml(item.Tipo || 'Tipo')}</span>
+              <span>${escapeHtml(item.Categoria || 'Sem categoria')}</span>
+              <span>${escapeHtml(dateBr(item.Vencimento || item.Competencia))}</span>
+              <span class="pill ${statusClass}">${escapeHtml(item.Situacao || 'Pendente')}</span>
+            </div>
+            ${!paid && item.ID ? `<button class="action ghost full" type="button" data-pay="${escapeHtml(item.ID)}" data-pay-type="${escapeHtml(item.Tipo || '')}">Marcar como ${isExpense ? 'pago' : 'recebido'}</button>` : ''}
+          </article>
+        `;
+      }
+
+      function activeTasks() {
+        return asList(state.data && state.data.tarefas)
+          .filter(task => normalize(task.Ativo || 'Sim') !== 'nao')
+          .sort((a, b) => String(dateYmd(a.Prazo) || '9999-99-99').localeCompare(String(dateYmd(b.Prazo) || '9999-99-99')));
+      }
+
+      function activeProjects() {
+        return asList(state.data && state.data.projetos)
+          .filter(project => normalize(project.Ativo || 'Sim') !== 'nao' && normalize(project.Status || 'Ativo') !== 'arquivado')
+          .sort((a, b) => String(a.Nome || '').localeCompare(String(b.Nome || ''), 'pt-BR'));
+      }
+
+      function projectName(id) {
+        const project = activeProjects().find(item => String(item.ID) === String(id));
+        return project ? project.Nome : 'Sem projeto';
+      }
+
+      function refreshProjectSelects() {
+        const select = $('#mobileAfazerProjeto');
+        if (!select) return;
+        const current = select.value;
+        select.innerHTML = '<option value="">Sem projeto</option>' + activeProjects()
+          .map(project => `<option value="${escapeHtml(project.ID)}">${escapeHtml(project.Nome)}</option>`)
+          .join('');
+        select.value = current;
+      }
+
+      function taskDone(task) {
+        return normalize(task.Status).includes('concl');
+      }
+
+      function taskType(task) {
+        return normalize(task.TipoAfazer || 'comum');
+      }
+
+      function weekStartYmd() {
+        const date = new Date();
+        const day = date.getDay();
+        date.setDate(date.getDate() + (day === 0 ? -6 : 1 - day));
+        date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+        return date.toISOString().slice(0, 10);
+      }
+
+      function parseJson(value, fallback) {
+        if (!value) return fallback;
+        if (typeof value === 'object') return value;
+        try {
+          return JSON.parse(value);
+        } catch (error) {
+          return fallback;
+        }
+      }
+
+      function metaInfo(task) {
+        const quantity = Math.max(1, Number(task.MetaSemanalQtd || 1));
+        const key = weekStartYmd();
+        const map = parseJson(task.MetaSemanalJson, {});
+        const done = Math.max(0, Number(map[key] || 0));
+        return { key, quantity, done, percent: Math.min(100, Math.round((done / quantity) * 100)) };
+      }
+
+      function renderTarefas() {
+        let tasks = activeTasks();
+        const today = todayYmd();
+        if (state.taskFilter === 'pendentes') tasks = tasks.filter(task => !taskDone(task) && taskType(task) !== 'meta');
+        if (state.taskFilter === 'hoje') tasks = tasks.filter(task => dateYmd(task.Prazo) === today);
+        if (state.taskFilter === 'metas') tasks = tasks.filter(task => taskType(task) === 'meta');
+        tasks = tasks.slice(0, 40);
+        if (!tasks.length) {
+          $('#tarefasList').innerHTML = '<div class="empty">Nenhum afazer neste filtro.</div>';
+          return;
+        }
+        const groups = {};
+        const order = [];
+        tasks.forEach(task => {
+          const key = task.ProjetoID || '';
+          if (!groups[key]) {
+            groups[key] = [];
+            order.push(key);
+          }
+          groups[key].push(task);
+        });
+        $('#tarefasList').innerHTML = order.map(key => `
+          <div class="stack">
+            <div class="list-meta" style="justify-content:space-between; padding: 0 2px;">
+              <span class="pill dark">${escapeHtml(projectName(key))}</span>
+              <span>${groups[key].filter(taskDone).length}/${groups[key].length}</span>
+            </div>
+            ${groups[key].map(taskCard).join('')}
+          </div>
+        `).join('');
+      }
+
+      function taskCard(task) {
+        const done = taskDone(task);
+        const type = taskType(task);
+        const date = dateYmd(task.Prazo);
+        const overdue = date && date < todayYmd() && !done;
+        if (type === 'meta') {
+          const meta = metaInfo(task);
+          return `
+            <article class="list-card">
+              <div class="list-top">
+                <strong>${escapeHtml(task.Titulo || 'Meta semanal')}</strong>
+                <span class="pill dark">${meta.done}/${meta.quantity}</span>
+              </div>
+              <div class="progress"><span style="width:${meta.percent}%"></span></div>
+              <div class="meta-controls">
+                <button type="button" data-meta-minus="${escapeHtml(task.ID)}" data-week="${escapeHtml(meta.key)}">−</button>
+                <span class="pill green" style="justify-content:center;">${meta.percent}%</span>
+                <button type="button" data-meta-plus="${escapeHtml(task.ID)}" data-week="${escapeHtml(meta.key)}">+</button>
+              </div>
+            </article>
+          `;
+        }
+        return `
+          <article class="list-card">
+            <div class="task-row">
+              <div>
+                <div class="list-top">
+                  <strong>${escapeHtml(task.Titulo || 'Afazer')}</strong>
+                </div>
+                <div class="list-meta">
+                  <span class="pill ${done ? 'green' : overdue ? 'red' : 'gold'}">${done ? 'Concluido' : overdue ? 'Atrasado' : (date ? dateBr(date) : 'Sem prazo')}</span>
+                  ${task.ProjetoID ? `<span class="pill green">${escapeHtml(projectName(task.ProjetoID))}</span>` : ''}
+                  <span>${escapeHtml(task.Area || 'Geral')}</span>
+                  <span>${escapeHtml(task.Prioridade || 'Normal')}</span>
+                </div>
+              </div>
+              <div style="display:grid; gap:8px;">
+                <button class="check ${done ? 'done' : ''}" type="button" data-task="${escapeHtml(task.ID)}" data-done="${done ? '1' : '0'}">${done ? '✓' : ''}</button>
+                <button class="action ghost" style="min-height:38px; padding:6px 8px;" type="button" data-delete-task="${escapeHtml(task.ID)}">Excluir</button>
+              </div>
+            </div>
+          </article>
+        `;
+      }
+
+      async function loadMap(force) {
+        if (!force && state.mapLoaded) {
+          setTimeout(() => state.map && state.map.invalidateSize(), 100);
+          return;
+        }
+        loading(true);
+        try {
+          state.mapPoints = await server('fausCarregarMapa');
+          state.mapLoaded = true;
+          renderMap();
+          renderMapList();
+        } catch (error) {
+          toast(`Erro no mapa: ${error.message}`, true);
+        } finally {
+          loading(false);
+        }
+      }
+
+      function renderMap() {
+        if (typeof L === 'undefined') {
+          toast('Biblioteca de mapa nao carregada.', true);
+          return;
+        }
+        const validPoints = asList(state.mapPoints).filter(point => Number.isFinite(Number(point.Latitude)) && Number.isFinite(Number(point.Longitude)));
+        const first = validPoints[0];
+        const center = first ? [Number(first.Latitude), Number(first.Longitude)] : [-23.5505, -46.6333];
+
+        if (!state.map) {
+          state.map = L.map('map', { zoomControl: false }).setView(center, first ? 12 : 6);
+          L.control.zoom({ position: 'bottomright' }).addTo(state.map);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+          }).addTo(state.map);
+          state.map.on('click', event => {
+            state.lastMapTap = event.latlng;
+            const form = $('#formPonto');
+            form.elements.Latitude.value = event.latlng.lat.toFixed(6);
+            form.elements.Longitude.value = event.latlng.lng.toFixed(6);
+            openSheet('ponto');
+            toast('Coordenadas preenchidas pelo toque no mapa.');
+          });
+        }
+
+        if (state.mapLayer) state.mapLayer.remove();
+        state.mapLayer = L.layerGroup().addTo(state.map);
+        validPoints.forEach(point => {
+          L.marker([Number(point.Latitude), Number(point.Longitude)])
+            .bindPopup(`<strong>${escapeHtml(point.Nome || 'Ponto')}</strong><br>${escapeHtml(point.Tipo || '')}`)
+            .addTo(state.mapLayer);
+        });
+        if (validPoints.length) {
+          const bounds = L.latLngBounds(validPoints.map(point => [Number(point.Latitude), Number(point.Longitude)]));
+          state.map.fitBounds(bounds.pad(.18));
+        } else {
+          state.map.setView(center, 6);
+        }
+        setTimeout(() => state.map.invalidateSize(), 100);
+      }
+
+      function renderMapList() {
+        const points = asList(state.mapPoints).filter(point => normalize(point.Ativo || 'Sim') !== 'nao');
+        $('#mapCount').textContent = `${points.length} ponto(s)`;
+        $('#mapList').innerHTML = points.length ? points.slice(0, 30).map(point => `
+          <article class="list-card">
+            <div class="list-top">
+              <strong>${escapeHtml(point.Nome || 'Ponto')}</strong>
+              <span class="pill green">${escapeHtml(point.Tipo || 'Mapa')}</span>
+            </div>
+            <div class="list-meta">
+              <span>${escapeHtml(point.Status || 'Ativo')}</span>
+              <span>${escapeHtml(point.Endereco || point.ClienteNome || 'Sem endereco')}</span>
+            </div>
+          </article>
+        `).join('') : '<div class="empty">Nenhum ponto carregado ainda.</div>';
+      }
+
+      function openSheet(kind, preset) {
+        $$('.modal-panel').forEach(panel => panel.classList.remove('active'));
+        $(`#panel-${kind}`).classList.add('active');
+        const titles = {
+          financeiro: 'Novo financeiro',
+          afazer: 'Novo afazer',
+          projeto: 'Novo projeto',
+          ponto: 'Novo ponto'
+        };
+        $('#sheetTitle').textContent = titles[kind] || 'Novo registro';
+
+        if (kind === 'financeiro') {
+          const form = $('#formFinanceiro');
+          if (!form.elements.Vencimento.value) form.elements.Vencimento.value = todayYmd();
+          if (preset && preset.type) form.elements.Tipo.value = preset.type;
+          form.elements.Situacao.value = 'Pendente';
+        }
+
+        const sheet = $('#sheet');
+        if (typeof sheet.showModal === 'function') sheet.showModal();
+        else sheet.setAttribute('open', '');
+      }
+
+      function closeSheet() {
+        const sheet = $('#sheet');
+        if (typeof sheet.close === 'function') sheet.close();
+        else sheet.removeAttribute('open');
+      }
+
+      async function saveFinanceiro(event) {
+        event.preventDefault();
+        loading(true);
+        try {
+          await server('fausSalvarFinanceiro', formObject(event.currentTarget));
+          event.currentTarget.reset();
+          closeSheet();
+          await loadAll('Lancamento salvo.');
+        } catch (error) {
+          toast(`Erro ao salvar: ${error.message}`, true);
+        } finally {
+          loading(false);
+        }
+      }
+
+      async function saveAfazer(event) {
+        event.preventDefault();
+        loading(true);
+        try {
+          const data = formObject(event.currentTarget);
+          if (data.TipoAfazer !== 'meta') data.MetaSemanalQtd = '';
+          await server('fausSalvarTarefa', data);
+          event.currentTarget.reset();
+          closeSheet();
+          await loadAll('Afazer salvo.');
+        } catch (error) {
+          toast(`Erro ao salvar: ${error.message}`, true);
+        } finally {
+          loading(false);
+        }
+      }
+
+      async function saveProjeto(event) {
+        event.preventDefault();
+        loading(true);
+        try {
+          await server('fausSalvarProjeto', formObject(event.currentTarget));
+          event.currentTarget.reset();
+          closeSheet();
+          await loadAll('Projeto salvo.');
+        } catch (error) {
+          toast(`Erro ao salvar projeto: ${error.message}`, true);
+        } finally {
+          loading(false);
+        }
+      }
+
+      async function savePonto(event) {
+        event.preventDefault();
+        loading(true);
+        try {
+          await server('fausSalvarPonto', formObject(event.currentTarget));
+          event.currentTarget.reset();
+          closeSheet();
+          state.mapLoaded = false;
+          await loadMap(true);
+          toast('Ponto salvo.');
+        } catch (error) {
+          toast(`Erro ao salvar ponto: ${error.message}`, true);
+        } finally {
+          loading(false);
+        }
+      }
+
+      async function markFinanceiro(id, type) {
+        loading(true);
+        try {
+          await server('fausAtualizarFinanceiro', id, {
+            Situacao: type === 'Receita' ? 'Recebido' : 'Pago',
+            DataPagamento: todayYmd()
+          });
+          await loadAll('Financeiro atualizado.');
+        } catch (error) {
+          toast(`Erro ao atualizar: ${error.message}`, true);
+        } finally {
+          loading(false);
+        }
+      }
+
+      async function toggleTask(id, done) {
+        loading(true);
+        try {
+          await server('fausAlternarTarefa', id, '', !done);
+          await loadAll('Afazer atualizado.');
+        } catch (error) {
+          toast(`Erro ao atualizar afazer: ${error.message}`, true);
+        } finally {
+          loading(false);
+        }
+      }
+
+      async function deleteTask(id) {
+        if (!confirm('Excluir este afazer?')) return;
+        loading(true);
+        try {
+          const res = await server('fausExcluirTarefa', id);
+          if (!res || res.ok === false) throw new Error('Exclusão não confirmada pelo backend.');
+          await loadAll('Afazer excluido.');
+        } catch (error) {
+          toast(`Erro ao excluir afazer: ${error.message}`, true);
+        } finally {
+          loading(false);
+        }
+      }
+
+      async function changeMeta(id, week, delta) {
+        loading(true);
+        try {
+          await server('fausIncrementarMetaSemanal', id, week, delta);
+          await loadAll('Meta atualizada.');
+        } catch (error) {
+          toast(`Erro ao atualizar meta: ${error.message}`, true);
+        } finally {
+          loading(false);
+        }
+      }
+
+      function bindEvents() {
+        document.addEventListener('click', event => {
+          const nav = event.target.closest('[data-view]');
+          if (nav) {
+            setView(nav.dataset.view);
+            return;
+          }
+
+          const open = event.target.closest('[data-open]');
+          if (open) {
+            openSheet(open.dataset.open, { type: open.dataset.type });
+            return;
+          }
+
+          const action = event.target.closest('[data-action]');
+          if (action) {
+            if (action.dataset.action === 'refresh') loadAll('Dados atualizados.');
+            if (action.dataset.action === 'close-sheet') closeSheet();
+            if (action.dataset.action === 'load-map') loadMap(true);
+            return;
+          }
+
+          const finFilter = event.target.closest('[data-fin-filter]');
+          if (finFilter) {
+            state.finFilter = finFilter.dataset.finFilter;
+            $$('[data-fin-filter]').forEach(button => button.classList.toggle('active', button === finFilter));
+            renderFinanceiro();
+            return;
+          }
+
+          const taskFilter = event.target.closest('[data-task-filter]');
+          if (taskFilter) {
+            state.taskFilter = taskFilter.dataset.taskFilter;
+            $$('[data-task-filter]').forEach(button => button.classList.toggle('active', button === taskFilter));
+            renderTarefas();
+            return;
+          }
+
+          const pay = event.target.closest('[data-pay]');
+          if (pay) {
+            markFinanceiro(pay.dataset.pay, pay.dataset.payType);
+            return;
+          }
+
+          const task = event.target.closest('[data-task]');
+          if (task) {
+            toggleTask(task.dataset.task, task.dataset.done === '1');
+            return;
+          }
+
+          const deleteTaskButton = event.target.closest('[data-delete-task]');
+          if (deleteTaskButton) {
+            deleteTask(deleteTaskButton.dataset.deleteTask);
+            return;
+          }
+
+          const metaPlus = event.target.closest('[data-meta-plus]');
+          if (metaPlus) {
+            changeMeta(metaPlus.dataset.metaPlus, metaPlus.dataset.week, 1);
+            return;
+          }
+
+          const metaMinus = event.target.closest('[data-meta-minus]');
+          if (metaMinus) {
+            changeMeta(metaMinus.dataset.metaMinus, metaMinus.dataset.week, -1);
+          }
+        });
+
+        $('#formFinanceiro').addEventListener('submit', saveFinanceiro);
+        $('#formAfazer').addEventListener('submit', saveAfazer);
+        $('#formProjeto').addEventListener('submit', saveProjeto);
+        $('#formPonto').addEventListener('submit', savePonto);
+      }
+
+      function init() {
+        bindEvents();
+        $('#todayLabel').textContent = dateBr(todayYmd());
+        loadAll();
+      }
+
+      init();
+    }());
+  </script>
+</body>
+</html>
