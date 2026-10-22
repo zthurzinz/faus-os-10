@@ -1614,6 +1614,7 @@
         afazeresModo: 'lista',
         afazeresPendentes: Object.create(null),
         afazeresAtualizacaoPromise: null,
+        afazeresConsulta: null,
         afazeresFormularioSalvando: false,
         afazeresRevisao: 0,
         carregamentoInicial: null,
@@ -1808,11 +1809,12 @@
         loading(true);
         try {
           const forcarAtualizacao = !!opcoes.force;
-          const revisaoAfazeres = state.afazeresRevisao;
+          const consultaAfazeres = consultarAfazeres();
+          const revisaoAfazeres = consultaAfazeres.revisao;
           // O bootstrap pode vir do cache; Afazeres usa a leitura direta existente.
           const [dados, afazeres] = await Promise.all([
             server(forcarAtualizacao ? 'fausBootstrapAtualizado' : 'fausBootstrap'),
-            server('fausCarregarAfazeresAtualizados').catch(e => {
+            consultaAfazeres.promessa.catch(e => {
               toast('Erro ao atualizar afazeres: ' + e.message, true);
               return state.data || { tarefas: [], projetos: [] };
             })
@@ -1860,6 +1862,16 @@
         return carregar(msg, 0, { force: true });
       }
 
+      function consultarAfazeres() {
+        if (!state.afazeresConsulta) {
+          const consulta = { revisao: state.afazeresRevisao };
+          consulta.promessa = serverAfazeres('fausCarregarAfazeresAtualizados')
+            .finally(() => { state.afazeresConsulta = null; });
+          state.afazeresConsulta = consulta;
+        }
+        return state.afazeresConsulta;
+      }
+
       function atualizarAfazeres(msg) {
         if (state.afazeresAtualizacaoPromise) return state.afazeresAtualizacaoPromise;
         const promessa = Promise.resolve().then(async () => {
@@ -1871,8 +1883,9 @@
             while (haAfazeresPendentes()) {
               await Promise.all(Object.values(state.afazeresPendentes).map(p => p.promessa));
             }
-            const revisao = state.afazeresRevisao;
-            const dados = await server('fausCarregarAfazeresAtualizados');
+            const consulta = consultarAfazeres();
+            const revisao = consulta.revisao;
+            const dados = await consulta.promessa;
             if (!dados || !Array.isArray(dados.tarefas) || !Array.isArray(dados.projetos)) {
               throw new Error('Resposta de afazeres inválida.');
             }
@@ -1902,10 +1915,11 @@
       async function carregarCompletoEmSegundoPlano(msg) {
         loading(true);
         try {
-          const revisaoAfazeres = state.afazeresRevisao;
+          const consultaAfazeres = consultarAfazeres();
+          const revisaoAfazeres = consultaAfazeres.revisao;
           const [dados, afazeres] = await Promise.all([
             server('fausBootstrap'),
-            server('fausCarregarAfazeresAtualizados').catch(e => {
+            consultaAfazeres.promessa.catch(e => {
               toast('Erro ao atualizar afazeres: ' + e.message, true);
               return state.data || { tarefas: [], projetos: [] };
             })
@@ -2294,7 +2308,9 @@
           // O prazo local não cancela o Apps Script: manter a operação pendente
           // evita uma reversão falsa e um segundo envio enquanto ele ainda grava.
           const timer = setTimeout(() => {
-            toast('O servidor está demorando. A gravação do afazer continua em andamento.', true);
+            toast(fn === 'fausCarregarAfazeresAtualizados'
+              ? 'O servidor está demorando. A consulta dos afazeres continua em andamento.'
+              : 'O servidor está demorando. A gravação do afazer continua em andamento.', true);
           }, 45000);
           try {
             google.script.run
@@ -4303,6 +4319,15 @@
         state.afazeresDia = hoje();
         limparAfazerForm();
         state.carregamentoInicial = carregar();
+
+        // Apenas a página visível consulta; a função existente atualiza lista e painel.
+        const sincronizarAfazeresVisiveis = () => {
+          if (document.visibilityState !== 'visible' || !state.data ||
+              haAfazeresPendentes() || state.afazeresConsulta || state.afazeresAtualizacaoPromise) return;
+          atualizarAfazeres();
+        };
+        setInterval(sincronizarAfazeresVisiveis, 30000);
+        document.addEventListener('visibilitychange', sincronizarAfazeresVisiveis);
       }
 
       if (document.readyState === 'loading') {
