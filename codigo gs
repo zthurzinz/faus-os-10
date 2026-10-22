@@ -1,0 +1,2279 @@
+/**
+ * FAUS OS - Google Apps Script Backend
+ * Versao 2.0.0-pro (Blindada & Completa)
+ */
+
+
+const FAUS = {
+  nome: 'FAUS OS',
+  versao: '2.1-cache',
+  timezone: 'America/Sao_Paulo',
+  abas: {
+    config: 'CONFIG',
+    clientes: 'CLIENTES',
+    oportunidades: 'OPORTUNIDADES',
+    interacoes: 'INTERACOES',
+    pontos: 'PONTOS_MAPA',
+    tarefas: 'AFAZERES',
+    projetos: 'PROJETOS',
+    financeiro: 'FINANCEIRO',
+    maquinas: 'MAQUINAS',
+    historico: 'HISTORICO'
+  },
+  etapasFinais: ['Fechado', 'Perdido'],
+  etapas: [
+    'Novo lead',
+    'Contato iniciado',
+    'Qualificado',
+    'Orçamento necessário',
+    'Proposta enviada',
+    'Negociação',
+    'Fechado',
+    'Perdido',
+    'Reativacao futura'
+  ],
+  canais: [
+    'Google Ads',
+    'Google Meu Negócio',
+    'Site',
+    'Instagram/Facebook',
+    'WhatsApp',
+    'Prospecção ativa',
+    'Cliente antigo',
+    'Indicação de operador',
+    'Indicação do pai',
+    'Presença em obra',
+    'Parceiro',
+    'Outros'
+  ]
+};
+
+
+const FAUS_OBSIDIAN = {
+  vault: 'Faus engenharia',
+  vaultFolderId: '1Bf3JFTYlJQSNQrBA9FQw9joo9rwZKFlj',
+  direcaoFolderId: '1Y6WiRthD2z4s0xkZR8plex6d5whP8yiF',
+  nomePastaDirecao: '0. Direção e Metas',
+  arquivos: {
+    visao: '00 - FAUS em 3 anos.md',
+    planejamento: '01 - Planejamento Anual.md',
+    projetos: '02 - Projetos.md',
+    metas: '03 - Metas.md',
+    afazeres: '04 - Afazeres da semana.md'
+  }
+};
+
+
+const FAUS_FINANCEIRO = {
+  spreadsheetId: '1HTebCifRICOL1CamLWBoiNHaWmKIn9h7VkbP-eHqOtY',
+  abas: {
+    lancamentos: 'Financeiro_Lancamentos',
+    contas: 'Financeiro_Contas_a_Pagar'
+  },
+  gids: {
+    lancamentos: 1754933729
+  }
+};
+
+const FAUS_FINANCEIRO_STATUS = {
+  erros: [],
+  planilha: null,
+  abas: []
+};
+
+const FAUS_DASHBOARD_CACHE = {
+  aba: 'DASHBOARD_CACHE',
+  cacheKey: 'FAUS_DASHBOARD_PAYLOAD_V1',
+  ttlSegundos: 300,
+  chunkSize: 45000
+};
+
+
+const ESQUEMAS = {
+  CONFIG: ['Chave', 'Valor', 'Descricao', 'AtualizadoEm'],
+  CLIENTES: ['ID', 'Nome', 'Empresa', 'Documento', 'Telefone', 'Email', 'Cidade', 'UF', 'Tipo', 'Status', 'Observacoes', 'Ativo', 'CriadoEm', 'AtualizadoEm', 'CanalOrigem'],
+  OPORTUNIDADES: ['ID', 'ClienteID', 'Titulo', 'Servico', 'Maquina', 'Canal', 'Etapa', 'ValorEstimado', 'Responsavel', 'ProximaAcao', 'DataProximaAcao', 'Probabilidade', 'MotivoPerda', 'PontoMapaID', 'Ativo', 'CriadoEm', 'AtualizadoEm', 'StatusOrcamento', 'ValorOrcamento', 'ValorVendido', 'DataSolicitacaoOrcamento', 'DataEnvioOrcamento', 'DataAprovacaoOrcamento', 'DataPerdaOrcamento'],
+  INTERACOES: ['ID', 'OportunidadeID', 'ClienteID', 'Tipo', 'Descricao', 'DataInteracao', 'ProximaAcao', 'DataProximaAcao', 'Responsavel', 'CriadoEm'],
+  PONTOS_MAPA: ['ID', 'ClienteID', 'ClienteNome', 'OportunidadeID', 'Nome', 'Tipo', 'Latitude', 'Longitude', 'Endereco', 'Telefone', 'Status', 'ValorEstimado', 'Observacoes', 'FotoUrl', 'ProximaAcao', 'DataProximaAcao', 'CoordenadasArea', 'TipoRegistro', 'Ativo', 'CriadoEm', 'AtualizadoEm'],
+  AFAZERES: ['ID', 'Titulo', 'Descricao', 'Area', 'Prioridade', 'Responsavel', 'Prazo', 'Status', 'ClienteID', 'OportunidadeID', 'TipoAfazer', 'MetaSemanalQtd', 'MetaSemanalJson', 'RecorrenciaTipo', 'RecorrenciaDiasMes', 'RecorrenciaDiasSemana', 'RecorrenciaInicio', 'RecorrenciaFim', 'ConclusoesJson', 'Ativo', 'CriadoEm', 'AtualizadoEm'],
+  FINANCEIRO: ['ID', 'Tipo', 'Descricao', 'Categoria', 'CentroCusto', 'ClienteID', 'OportunidadeID', 'Maquina', 'Valor', 'Competencia', 'Vencimento', 'Situacao', 'DataPagamento', 'FormaPagamento', 'DocumentoUrl', 'Observacoes', 'Ativo', 'CriadoEm', 'AtualizadoEm'],
+  MAQUINAS: ['ID', 'Nome', 'Modelo', 'PlacaSerie', 'Status', 'Horimetro', 'ProximaManutencao', 'Observacoes', 'Ativo', 'CriadoEm', 'AtualizadoEm'],
+  HISTORICO: ['ID', 'DataHora', 'Usuario', 'Origem', 'Acao', 'Entidade', 'RegistroID', 'Resumo', 'DadosJson']
+};
+
+
+function ss_() {
+  try {
+    const ativa = SpreadsheetApp.getActiveSpreadsheet();
+    if (ativa) return ativa;
+  } catch (e) {}
+  try {
+    if (FAUS_FINANCEIRO.spreadsheetId) {
+      return SpreadsheetApp.openById(FAUS_FINANCEIRO.spreadsheetId);
+    }
+  } catch (e) {}
+  throw new Error('Não foi possível abrir a planilha do FAUS OS. Confira se o script está vinculado à planilha correta.');
+}
+
+
+function aba_(n) {
+  const ss = ss_();
+  let s = ss.getSheetByName(n);
+  if (!s) {
+    s = ss.insertSheet(n);
+    const esp = ESQUEMAS[n] || ['ID', 'CriadoEm'];
+    s.getRange(1, 1, 1, esp.length).setValues([esp]);
+  }
+  return s;
+}
+
+
+function agora_() {
+  return new Date();
+}
+
+
+function id_() {
+  return Utilities.getUuid();
+}
+
+
+function hoje_() {
+  return Utilities.formatDate(new Date(), FAUS.timezone, 'yyyy-MM-dd');
+}
+
+
+function seguro_(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v).trim();
+  return /^[=+\-@]/.test(s) ? "'" + s : s;
+}
+
+
+function numero_(v) {
+  if (typeof v === 'number') return v;
+  const n = Number(String(v || '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+}
+
+
+function data_(v) {
+  if (!v) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return Utilities.formatDate(v, FAUS.timezone, 'yyyy-MM-dd');
+  }
+  return String(v).slice(0, 10);
+}
+
+
+function headers_(s) {
+  if (!s || s.getLastColumn() === 0) return [];
+  return s.getRange(1, 1, 1, s.getLastColumn()).getDisplayValues()[0];
+}
+
+
+function objetos_(n) {
+  try {
+    const s = aba_(n);
+    if (!s || s.getLastRow() < 2) return [];
+    const h = headers_(s);
+    if (!h.length) return [];
+    const r = s.getRange(2, 1, s.getLastRow() - 1, h.length).getValues();
+    return r.map((x, i) => {
+      const o = { _linha: i + 2 };
+      h.forEach((k, j) => {
+        o[k] = Object.prototype.toString.call(x[j]) === '[object Date]' ? data_(x[j]) : x[j];
+      });
+      return o;
+    }).filter(o => {
+      if (!Object.prototype.hasOwnProperty.call(o, 'Ativo')) return true;
+      const ativo = String(o.Ativo).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      return ativo !== 'nao';
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
+
+function objetosLimite_(n, limite) {
+  try {
+    const s = aba_(n);
+    if (!s || s.getLastRow() < 2) return [];
+    const h = headers_(s);
+    if (!h.length) return [];
+    const total = s.getLastRow() - 1;
+    const qtd = Math.min(total, Math.max(1, Number(limite || total)));
+    const inicio = 2 + (total - qtd);
+    const r = s.getRange(inicio, 1, qtd, h.length).getValues();
+    return r.map((x, i) => {
+      const o = { _linha: inicio + i };
+      h.forEach((k, j) => {
+        o[k] = Object.prototype.toString.call(x[j]) === '[object Date]' ? data_(x[j]) : x[j];
+      });
+      return o;
+    }).filter(o => {
+      if (!Object.prototype.hasOwnProperty.call(o, 'Ativo')) return true;
+      const ativo = String(o.Ativo).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      return ativo !== 'nao';
+    });
+  } catch (e) {
+    fausLog_('objetosLimite falhou', { aba: n, erro: e.message });
+    return [];
+  }
+}
+
+
+function objetosExistentes_(n, limite) {
+  try {
+    const s = ss_().getSheetByName(n);
+    if (!s || s.getLastRow() < 2) return [];
+    const h = headers_(s);
+    if (!h.length) return [];
+    const total = s.getLastRow() - 1;
+    const qtd = limite ? Math.min(total, Math.max(1, Number(limite))) : total;
+    const inicio = 2 + (total - qtd);
+    const r = s.getRange(inicio, 1, qtd, h.length).getValues();
+    return r.map((x, i) => {
+      const o = { _linha: inicio + i };
+      h.forEach((k, j) => {
+        o[k] = Object.prototype.toString.call(x[j]) === '[object Date]' ? data_(x[j]) : x[j];
+      });
+      return o;
+    }).filter(o => {
+      if (!Object.prototype.hasOwnProperty.call(o, 'Ativo')) return true;
+      const ativo = String(o.Ativo).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      return ativo !== 'nao';
+    });
+  } catch (e) {
+    fausLog_('objetosExistentes falhou', { aba: n, erro: e.message });
+    return [];
+  }
+}
+
+
+function serial_(v) {
+  return JSON.parse(JSON.stringify(v, (k, x) => {
+    return Object.prototype.toString.call(x) === '[object Date]' ? Utilities.formatDate(x, FAUS.timezone, "yyyy-MM-dd'T'HH:mm:ss") : x;
+  }));
+}
+
+
+function fausLog_(etapa, dados) {
+  try {
+    console.log('[FAUS DEBUG] ' + etapa + ' ' + JSON.stringify(serial_(dados || {})).slice(0, 5000));
+  } catch (e) {
+    try {
+      Logger.log('[FAUS DEBUG] ' + etapa);
+    } catch (x) {}
+  }
+}
+
+
+function obrig_(d, campos) {
+  const a = campos.filter(c => !String(d[c] || '').trim());
+  if (a.length) throw new Error('Preencha ' + a.join(', ') + '.');
+}
+
+
+function lock_(fn) {
+  const l = LockService.getScriptLock();
+  try {
+    l.waitLock(10000);
+  } catch (e) {}
+  try {
+    return fn();
+  } finally {
+    try {
+      l.releaseLock();
+    } catch (e) {}
+  }
+}
+
+
+function auditar_(origem, acao, ent, id, resumo, dados) {
+  try {
+    if (ent === FAUS.abas.historico) return;
+    aba_(FAUS.abas.historico).appendRow([
+      id_(),
+      agora_(),
+      Session.getActiveUser().getEmail() || 'proprietario',
+      origem,
+      acao,
+      ent,
+      id,
+      seguro_(resumo || ''),
+      JSON.stringify(serial_(dados || {})).slice(0, 45000)
+    ]);
+  } catch (e) {}
+}
+
+
+function inserir_(nome, dados, origem) {
+  return lock_(() => {
+    const s = aba_(nome);
+    const h = headers_(s);
+    const r = Object.assign({}, dados);
+    const a = agora_();
+    if (h.includes('ID') && !r.ID) r.ID = id_();
+    if (h.includes('Ativo') && !r.Ativo) r.Ativo = 'Sim';
+    if (h.includes('CriadoEm') && !r.CriadoEm) r.CriadoEm = a;
+    if (h.includes('AtualizadoEm')) r.AtualizadoEm = a;
+    s.appendRow(h.map(k => typeof r[k] === 'string' ? seguro_(r[k]) : (r[k] === undefined ? '' : r[k])));
+    auditar_(origem || 'APP', 'CRIAR', nome, r.ID || '', r.Titulo || r.Nome || r.Descricao || '', r);
+    return serial_(r);
+  });
+}
+
+
+function atualizar_(nome, id, alt) {
+  return lock_(() => {
+    const s = aba_(nome);
+    const h = headers_(s);
+    const c = h.indexOf('ID');
+    if (c < 0) return { ok: false };
+    const ids = s.getRange(2, c + 1, Math.max(s.getLastRow() - 1, 1), 1).getDisplayValues();
+    let lin = -1;
+    ids.some((x, i) => {
+      if (String(x[0]) === String(id)) {
+        lin = i + 2;
+        return true;
+      }
+      return false;
+    });
+    if (lin < 0) throw new Error('Registro não encontrado.');
+    const row = s.getRange(lin, 1, 1, h.length).getValues()[0];
+    h.forEach((k, i) => {
+      if (Object.prototype.hasOwnProperty.call(alt, k)) {
+        row[i] = typeof alt[k] === 'string' ? seguro_(alt[k]) : alt[k];
+      }
+      if (k === 'AtualizadoEm') row[i] = agora_();
+    });
+    s.getRange(lin, 1, 1, h.length).setValues([row]);
+    auditar_('APP', 'ATUALIZAR', nome, id, JSON.stringify(alt), alt);
+    return { ok: true, id: id };
+  });
+}
+
+
+function atualizarExistente_(nome, id, alt) {
+  return lock_(() => {
+    const s = ss_().getSheetByName(nome);
+    if (!s) throw new Error('Aba não encontrada: ' + nome + '.');
+    const h = headers_(s);
+    const c = h.indexOf('ID');
+    if (c < 0) throw new Error('Aba sem coluna ID: ' + nome + '.');
+    const ids = s.getRange(2, c + 1, Math.max(s.getLastRow() - 1, 1), 1).getDisplayValues();
+    let lin = -1;
+    ids.some((x, i) => {
+      if (String(x[0]) === String(id)) {
+        lin = i + 2;
+        return true;
+      }
+      return false;
+    });
+    if (lin < 0) throw new Error('Registro não encontrado.');
+    const row = s.getRange(lin, 1, 1, h.length).getValues()[0];
+    h.forEach((k, i) => {
+      if (Object.prototype.hasOwnProperty.call(alt, k)) {
+        row[i] = typeof alt[k] === 'string' ? seguro_(alt[k]) : alt[k];
+      }
+      if (k === 'AtualizadoEm') row[i] = agora_();
+    });
+    s.getRange(lin, 1, 1, h.length).setValues([row]);
+    auditar_('APP', 'ATUALIZAR', nome, id, JSON.stringify(alt), alt);
+    return { ok: true, id: id };
+  });
+}
+
+
+function garantirEstrutura_() {
+  Object.keys(ESQUEMAS).forEach(n => {
+    const s = aba_(n);
+    const esp = ESQUEMAS[n];
+    const atuais = headers_(s).filter(String);
+    const faltantes = esp.filter(c => !atuais.includes(c));
+    if (faltantes.length) {
+      s.getRange(1, atuais.length + 1, 1, faltantes.length).setValues([faltantes]);
+    }
+  });
+}
+
+
+// ----------------------------------------------------
+// OBSIDIAN INTEGRATION (BLINDADA CONTRA ERROS)
+// ----------------------------------------------------
+
+
+function fausObterPastaVault_() {
+  try {
+    if (FAUS_OBSIDIAN.vaultFolderId) {
+      return DriveApp.getFolderById(FAUS_OBSIDIAN.vaultFolderId);
+    }
+  } catch (e) {}
+  try {
+    const it = DriveApp.getFoldersByName(FAUS_OBSIDIAN.vault);
+    if (it.hasNext()) return it.next();
+  } catch (e) {}
+  return null;
+}
+
+
+function fausObterPastaDirecao_() {
+  try {
+    if (FAUS_OBSIDIAN.direcaoFolderId) {
+      return DriveApp.getFolderById(FAUS_OBSIDIAN.direcaoFolderId);
+    }
+  } catch (e) {}
+  try {
+    const vault = fausObterPastaVault_();
+    if (vault) {
+      const itSub = vault.getFoldersByName(FAUS_OBSIDIAN.nomePastaDirecao);
+      if (itSub.hasNext()) return itSub.next();
+      const itSub2 = vault.getFoldersByName('Direcao e Metas');
+      if (itSub2.hasNext()) return itSub2.next();
+      const itSub3 = vault.getFoldersByName('Direção e Metas');
+      if (itSub3.hasNext()) return itSub3.next();
+    }
+  } catch (e) {}
+  return null;
+}
+
+
+function fausObsidianArquivo_(pasta, nome, criarSeAusente) {
+  if (!pasta) return null;
+  try {
+    const it = pasta.getFilesByName(nome);
+    if (it.hasNext()) return it.next();
+    if (criarSeAusente) {
+      const modeloPadrao = '# ' + nome.replace(/\.md$/i, '') + '\n\n## Comercial\n\n## Financeiro\n\n## Operação\n\n## Gestão\n';
+      return pasta.createFile(nome, modeloPadrao, 'text/markdown');
+    }
+  } catch (e) {}
+  return null;
+}
+
+
+function fausObsidianLerArquivo_(pasta, nome) {
+  try {
+    const arq = fausObsidianArquivo_(pasta, nome, nome === FAUS_OBSIDIAN.arquivos.afazeres);
+    return arq ? arq.getBlob().getDataAsString('UTF-8') : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+
+function fausCategoriaSemana_(titulo) {
+  const n = String(titulo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (n.indexOf('comercial') >= 0) return 'Comercial';
+  if (n.indexOf('gestao') >= 0) return 'Gestão';
+  if (n.indexOf('financeiro') >= 0) return 'Financeiro';
+  if (n.indexOf('maquina') >= 0 || n.indexOf('operacao') >= 0) return 'Operação';
+  return '';
+}
+
+
+function fausObsidianLimparLinha_(s) {
+  return String(s || '')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[`_#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+
+function fausObsidianParseAfazeres_(md) {
+  const linhas = String(md || '').split(/\r?\n/);
+  const itens = [];
+  const metas = [];
+  const mapa = {};
+  let categoria = 'Geral';
+  let emMetas = false;
+
+
+  linhas.forEach((l, i) => {
+    const titulo = l.match(/^\s{0,3}#{1,6}\s+(.+)$/);
+    const check = l.match(/^\s*[-*]\s+\[([ xX])\]\s+(.+)$/);
+    const meta = l.match(/^\s*[-*]\s+(?!\[[ xX]\]\s+)(.+)$/);
+
+
+    if (titulo) {
+      const limpo = fausObsidianLimparLinha_(titulo[1]);
+      emMetas = String(limpo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().indexOf('meta') >= 0;
+      const cat = fausCategoriaSemana_(limpo);
+      if (cat) categoria = cat;
+      else if (categoria === 'Geral') categoria = limpo || 'Geral';
+      return;
+    }
+    if (emMetas && meta) {
+      const textoMeta = fausObsidianLimparLinha_(meta[1]);
+      if (textoMeta) metas.push({ texto: textoMeta });
+      return;
+    }
+    if (!check) return;
+    const cat = fausCategoriaSemana_(categoria) || categoria || 'Geral';
+    const afazer = {
+      id: 'L' + (i + 1),
+      linha: i + 1,
+      categoria: cat,
+      texto: fausObsidianLimparLinha_(check[2]),
+      concluido: check[1].toLowerCase() === 'x'
+    };
+    itens.push(afazer);
+    if (!mapa[cat]) mapa[cat] = { nome: cat, itens: [], total: 0, concluidas: 0, pendentes: 0 };
+    mapa[cat].itens.push(afazer);
+    mapa[cat].total++;
+    if (afazer.concluido) mapa[cat].concluidas++;
+    else mapa[cat].pendentes++;
+  });
+
+
+  const total = itens.length;
+  const concluidas = itens.filter(x => x.concluido).length;
+
+
+  return {
+    total: total,
+    concluidas: concluidas,
+    pendentes: total - concluidas,
+    metas: metas.slice(0, 3),
+    itens: itens,
+    categorias: Object.keys(mapa).map(k => mapa[k])
+  };
+}
+
+
+function fausObsidianParseDocumento_(md) {
+  const secoes = [];
+  const linhas = String(md || '').split(/\r?\n/);
+  let atual = null;
+
+
+  linhas.forEach(l => {
+    const titulo = l.match(/^\s{0,3}(#{1,4})\s+(.+)$/);
+    if (titulo) {
+      atual = { titulo: fausObsidianLimparLinha_(titulo[2]), texto: [] };
+      secoes.push(atual);
+      return;
+    }
+    if (!atual) {
+      atual = { titulo: 'Geral', texto: [] };
+      secoes.push(atual);
+    }
+    const txt = fausObsidianLimparLinha_(l);
+    if (txt) atual.texto.push(txt);
+  });
+
+
+  return secoes.slice(0, 8).map(s => ({
+    titulo: s.titulo,
+    texto: s.texto.join(' ').slice(0, 300)
+  }));
+}
+
+
+function fausObsidianMvp() {
+  try {
+    const pasta = fausObterPastaDirecao_();
+    if (!pasta) {
+      return { ok: false, afazeres: { total: 0, concluidas: 0, pendentes: 0, itens: [] }, visao: [], metas: [], projetos: [], planejamento: [] };
+    }
+    const lidos = {};
+    Object.keys(FAUS_OBSIDIAN.arquivos).forEach(k => {
+      lidos[k] = fausObsidianLerArquivo_(pasta, FAUS_OBSIDIAN.arquivos[k]);
+    });
+    return {
+      ok: true,
+      afazeres: fausObsidianParseAfazeres_(lidos.afazeres),
+      visao: fausObsidianParseDocumento_(lidos.visao),
+      metas: fausObsidianParseDocumento_(lidos.metas),
+      projetos: fausObsidianParseDocumento_(lidos.projetos),
+      planejamento: fausObsidianParseDocumento_(lidos.planejamento)
+    };
+  } catch (e) {
+    return { ok: false, erro: e.message, afazeres: { total: 0, concluidas: 0, pendentes: 0, itens: [] }, visao: [], metas: [], projetos: [], planejamento: [] };
+  }
+}
+
+
+function fausSalvarSemana(dados) {
+  return lock_(() => {
+    dados = dados || {};
+    const pasta = fausObterPastaDirecao_();
+    if (!pasta) return { total: 0, concluidas: 0, pendentes: 0, itens: [] };
+    const arq = fausObsidianArquivo_(pasta, FAUS_OBSIDIAN.arquivos.afazeres, true);
+    if (!arq) return { total: 0, concluidas: 0, pendentes: 0, itens: [] };
+
+
+    const linhas = ['# Afazeres da semana'];
+    const metas = (dados.metas || [])
+      .map(m => fausObsidianLimparLinha_(m.texto || m))
+      .filter(Boolean)
+      .slice(0, 3);
+
+    if (metas.length) {
+      linhas.push('', '## Metas da semana');
+      metas.forEach(m => linhas.push('- ' + m));
+    }
+
+    const categorias = ['Comercial', 'Financeiro', 'Operação', 'Gestão'];
+
+
+    categorias.forEach(cat => {
+      linhas.push('', '## ' + cat);
+      const catSemAcento = cat.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const tarefas = ((dados.tarefas && (dados.tarefas[cat] || dados.tarefas[catSemAcento])) || []).filter(Boolean);
+      tarefas.forEach(t => {
+        const texto = fausObsidianLimparLinha_(t.texto || t);
+        const feito = !!(t.concluido || t.feito);
+        if (texto) linhas.push('- [' + (feito ? 'x' : ' ') + '] ' + texto);
+      });
+    });
+
+
+    const md = linhas.join('\n') + '\n';
+    arq.setContent(md);
+    return fausObsidianParseAfazeres_(md);
+  });
+}
+
+
+function fausAlternarAfazerSemana(id) {
+  return lock_(() => {
+    const pasta = fausObterPastaDirecao_();
+    if (!pasta) throw new Error('Pasta de direção não encontrada.');
+
+
+    const arq = fausObsidianArquivo_(
+      pasta,
+      FAUS_OBSIDIAN.arquivos.afazeres,
+      true
+    );
+
+
+    if (!arq) throw new Error('Arquivo de afazeres não encontrado.');
+
+
+    const md = arq.getBlob().getDataAsString('UTF-8');
+    const linhas = String(md || '').split(/\r?\n/);
+    const n = Number(String(id || '').replace(/^L/i, ''));
+
+
+    if (!Number.isFinite(n) || n < 1 || n > linhas.length) {
+      throw new Error('Afazer não encontrado.');
+    }
+
+
+    const idx = n - 1;
+    const linha = linhas[idx];
+
+
+    if (/^\s*[-*]\s+\[[ xX]\]\s+/.test(linha)) {
+      linhas[idx] = linha.replace(/\[[ xX]\]/, m => {
+        return m.toLowerCase() === '[x]' ? '[ ]' : '[x]';
+      });
+    } else {
+      throw new Error('Linha do afazer inválida.');
+    }
+
+
+    const novoMd = linhas.join('\n');
+    arq.setContent(novoMd);
+
+
+    return fausObsidianParseAfazeres_(novoMd);
+  });
+}
+
+
+// ----------------------------------------------------
+// CENTRAL DE AFAZERES (GOOGLE SHEETS)
+// ----------------------------------------------------
+
+
+function fausJson_(v, padrao) {
+  if (!v) return padrao;
+  if (typeof v === 'object') return v;
+  try {
+    return JSON.parse(String(v));
+  } catch (e) {
+    return padrao;
+  }
+}
+
+
+function fausFinanceiroChave_(v) {
+  return String(v || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function fausFinanceiroResetStatus_() {
+  FAUS_FINANCEIRO_STATUS.erros = [];
+  FAUS_FINANCEIRO_STATUS.planilha = null;
+  FAUS_FINANCEIRO_STATUS.abas = [];
+}
+
+
+function fausFinanceiroStatusErro_(msg, dados) {
+  FAUS_FINANCEIRO_STATUS.erros.push(msg);
+  fausLog_('financeiro aviso', Object.assign({ msg: msg }, dados || {}));
+}
+
+
+function fausFinanceiroRegistrarPlanilha_(ss) {
+  if (!ss) return;
+  try {
+    FAUS_FINANCEIRO_STATUS.planilha = {
+      id: ss.getId(),
+      nome: ss.getName(),
+      url: ss.getUrl()
+    };
+  } catch (e) {}
+}
+
+
+function fausFinanceiroRegistrarAba_(tipo, s) {
+  if (!s) return;
+  const item = {
+    tipo: tipo,
+    nome: s.getName(),
+    gid: s.getSheetId(),
+    linhas: s.getLastRow()
+  };
+  const chave = tipo + ':' + item.gid;
+  if (!FAUS_FINANCEIRO_STATUS.abas.some(x => (x.tipo + ':' + x.gid) === chave)) {
+    FAUS_FINANCEIRO_STATUS.abas.push(item);
+  }
+}
+
+
+function fausFinanceiroNomesAba_(tipo) {
+  const cfg = FAUS_FINANCEIRO.abas && FAUS_FINANCEIRO.abas[tipo];
+  const nomes = tipo === 'contas' ? [
+    cfg,
+    'Financeiro_Contas_a_Pagar',
+    'CONTAS_A_PAGAR',
+    'Contas_a_Pagar',
+    'Contas a Pagar',
+    'Contas para Pagar',
+    'A Pagar'
+  ] : [
+    cfg,
+    'Financeiro_Lancamentos',
+    'Financeiro_Lançamentos',
+    'LANCAMENTOS',
+    'Lançamentos',
+    'Lancamentos',
+    'FINANCEIRO',
+    'Financeiro'
+  ];
+  const vistos = {};
+  return nomes.filter(n => {
+    const chave = fausFinanceiroChave_(n);
+    if (!chave || vistos[chave]) return false;
+    vistos[chave] = true;
+    return true;
+  });
+}
+
+
+function fausFinanceiroPontuarAba_(s, tipo) {
+  try {
+    if (!s || s.getLastColumn() < 1) return 0;
+    const nome = fausFinanceiroChave_(s.getName());
+    const h = headers_(s);
+    const mapa = fausFinanceiroMapaHeaders_(h);
+    let pontos = 0;
+    if (mapa.Valor !== undefined) pontos += 4;
+    if (mapa.Descricao !== undefined) pontos += 2;
+    if (mapa.Vencimento !== undefined || mapa.Competencia !== undefined || mapa.Mes !== undefined) pontos += 2;
+    if (mapa.Situacao !== undefined || mapa.DataPagamento !== undefined) pontos += 1;
+    if (tipo === 'contas') {
+      if (nome.indexOf('pagar') >= 0 || nome.indexOf('conta') >= 0) pontos += 4;
+      else pontos = 0;
+    } else if (nome.indexOf('financeiro') >= 0 || nome.indexOf('lancamento') >= 0) {
+      pontos += 2;
+    }
+    return pontos;
+  } catch (e) {
+    return 0;
+  }
+}
+
+
+function fausFinanceiroLinhasDados_(s) {
+  try {
+    return s ? Math.max(0, s.getLastRow() - 1) : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+
+function fausFinanceiroAdicionarCandidato_(lista, vistos, s, tipo, bonus) {
+  if (!s) return;
+  const gid = String(s.getSheetId());
+  if (vistos[gid]) return;
+  vistos[gid] = true;
+  const pontos = fausFinanceiroPontuarAba_(s, tipo) + (bonus || 0);
+  const linhas = fausFinanceiroLinhasDados_(s);
+  if (pontos >= 6 || bonus) {
+    lista.push({ s: s, pontos: pontos, linhas: linhas });
+  }
+}
+
+
+function fausFinanceiroCandidatosAba_(ss, tipo) {
+  const candidatos = [];
+  const vistos = {};
+  const nomes = fausFinanceiroNomesAba_(tipo);
+
+  nomes.forEach(nome => {
+    const s = ss.getSheetByName(nome);
+    if (s) fausFinanceiroAdicionarCandidato_(candidatos, vistos, s, tipo, 4);
+  });
+
+  const gid = FAUS_FINANCEIRO.gids && FAUS_FINANCEIRO.gids[tipo];
+  if (gid) {
+    const porGid = ss.getSheets().find(x => Number(x.getSheetId()) === Number(gid)) || null;
+    if (porGid) fausFinanceiroAdicionarCandidato_(candidatos, vistos, porGid, tipo, 3);
+  }
+
+  ss.getSheets().forEach(s => fausFinanceiroAdicionarCandidato_(candidatos, vistos, s, tipo, 0));
+
+  return candidatos.sort((a, b) => {
+    const aTemDados = a.linhas > 0 ? 1 : 0;
+    const bTemDados = b.linhas > 0 ? 1 : 0;
+    if (aTemDados !== bTemDados) return bTemDados - aTemDados;
+    if (a.pontos !== b.pontos) return b.pontos - a.pontos;
+    return b.linhas - a.linhas;
+  });
+}
+
+
+function fausFinanceiroLocalizarAbaNoSs_(ss, tipo, criarSeAusente) {
+  if (!ss) return null;
+  const melhor = fausFinanceiroCandidatosAba_(ss, tipo)[0];
+  if (melhor) return melhor.s;
+
+  if (criarSeAusente && FAUS_FINANCEIRO.abas && FAUS_FINANCEIRO.abas[tipo]) {
+    const s = ss.insertSheet(FAUS_FINANCEIRO.abas[tipo]);
+    s.getRange(1, 1, 1, ESQUEMAS.FINANCEIRO.length).setValues([ESQUEMAS.FINANCEIRO]);
+    return s;
+  }
+  return null;
+}
+
+
+function fausFinanceiroSs_() {
+  const candidatos = [];
+  try {
+    if (FAUS_FINANCEIRO.spreadsheetId) {
+      const configurada = SpreadsheetApp.openById(FAUS_FINANCEIRO.spreadsheetId);
+      if (configurada) candidatos.push(configurada);
+    }
+  } catch (e) {
+    fausFinanceiroStatusErro_('Não foi possível abrir a planilha financeira configurada por ID.', { erro: e.message });
+  }
+  try {
+    const ativa = SpreadsheetApp.getActiveSpreadsheet();
+    if (ativa && !candidatos.some(ss => ss.getId() === ativa.getId())) {
+      candidatos.push(ativa);
+    }
+  } catch (e) {}
+
+  const escolhida = candidatos.find(ss =>
+    fausFinanceiroLocalizarAbaNoSs_(ss, 'lancamentos', false) ||
+    fausFinanceiroLocalizarAbaNoSs_(ss, 'contas', false)
+  ) || candidatos[0];
+
+  if (!escolhida) throw new Error('Não foi possível abrir a planilha financeira.');
+  fausFinanceiroRegistrarPlanilha_(escolhida);
+  return escolhida;
+}
+
+
+function fausFinanceiroAba_(tipo, criarSeAusente) {
+  const ss = fausFinanceiroSs_();
+  const s = fausFinanceiroLocalizarAbaNoSs_(ss, tipo, criarSeAusente);
+  if (s) {
+    fausFinanceiroRegistrarAba_(tipo, s);
+  } else if (!criarSeAusente && tipo !== 'contas') {
+    fausFinanceiroStatusErro_('Aba financeira não encontrada: ' + tipo + '.', {
+      planilha: FAUS_FINANCEIRO_STATUS.planilha && FAUS_FINANCEIRO_STATUS.planilha.nome
+    });
+  }
+  return s;
+}
+
+
+function fausFinanceiroAliases_() {
+  return {
+    ID: ['id', 'codigo', 'cod', 'uuid', 'idlancamento', 'id_lancamento', 'lancamentoid'],
+    Tipo: ['tipo', 'natureza', 'entrada_saida', 'entradasaida', 'receita_despesa', 'receitadespesa'],
+    Descricao: ['descricao', 'historico', 'lancamento', 'titulo', 'nome', 'fornecedor', 'conta'],
+    Categoria: ['categoria', 'grupo', 'classificacao', 'classe'],
+    CentroCusto: ['centrocusto', 'centro_de_custo', 'obra', 'setor', 'empresa'],
+    ClienteID: ['clienteid', 'cliente_id', 'cliente'],
+    OportunidadeID: ['oportunidadeid', 'oportunidade_id', 'oportunidade'],
+    Maquina: ['maquina', 'equipamento', 'veiculo'],
+    Valor: ['valor', 'valortotal', 'total', 'valorbruto', 'valorliquido', 'valorliquido'],
+    Competencia: ['competencia', 'datafinanceira', 'datalancamento', 'datamovimento', 'dataoperacao', 'mes', 'referencia', 'periodo'],
+    Mes: ['mes', 'mescompetencia', 'mesreferencia'],
+    Ano: ['ano', 'anocompetencia', 'anoreferencia'],
+    Vencimento: ['vencimento', 'datavencimento', 'datadevencimento', 'data_vencimento', 'data_de_vencimento', 'vcto', 'datavcto', 'data', 'prazo'],
+    Situacao: ['situacao', 'status', 'pago', 'pagamento', 'baixado'],
+    DataPagamento: ['datapagamento', 'databaixa', 'datarecebimento', 'recebimento', 'pagamentoem'],
+    FormaPagamento: ['formapagamento', 'forma', 'meio', 'metodo', 'conta', 'banco', 'contabancaria'],
+    DocumentoUrl: ['documentourl', 'documento', 'boleto', 'comprovante', 'link'],
+    Observacoes: ['observacoes', 'observacao', 'obs', 'notas'],
+    Ativo: ['ativo', 'ativa'],
+    CriadoEm: ['criadoem', 'criado', 'datacriacao'],
+    AtualizadoEm: ['atualizadoem', 'atualizado', 'dataatualizacao']
+  };
+}
+
+
+function fausFinanceiroMapaHeaders_(headers) {
+  const chaves = headers.map(fausFinanceiroChave_);
+  const aliases = fausFinanceiroAliases_();
+  const mapa = {};
+  Object.keys(aliases).forEach(campo => {
+    const opcoes = [campo].concat(aliases[campo]).map(fausFinanceiroChave_);
+    const idx = chaves.findIndex(k => opcoes.includes(k));
+    if (idx >= 0) mapa[campo] = idx;
+  });
+  return mapa;
+}
+
+
+function fausFinanceiroValor_(linha, displays, mapa, campo) {
+  const idx = mapa[campo];
+  if (idx === undefined || idx < 0) return '';
+  const bruto = linha[idx];
+  return bruto === '' || bruto === null || bruto === undefined ? displays[idx] : bruto;
+}
+
+
+function fausFinanceiroNumero_(v) {
+  if (typeof v === 'number') return v;
+  let s = String(v || '').trim().replace(/[^\d,.\-]/g, '');
+  if (!s) return 0;
+  const ultimaVirgula = s.lastIndexOf(',');
+  const ultimoPonto = s.lastIndexOf('.');
+  if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+    s = ultimaVirgula > ultimoPonto ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else if (ultimaVirgula >= 0) {
+    s = s.replace(',', '.');
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+
+function fausFinanceiroData_(v) {
+  if (!v) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return Utilities.formatDate(v, FAUS.timezone, 'yyyy-MM-dd');
+  }
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (m) return [m[1], ('0' + m[2]).slice(-2), ('0' + m[3]).slice(-2)].join('-');
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) {
+    const ano = m[3].length === 2 ? '20' + m[3] : m[3];
+    return [ano, ('0' + m[2]).slice(-2), ('0' + m[1]).slice(-2)].join('-');
+  }
+  return s.slice(0, 10);
+}
+
+
+function fausFinanceiroCompetencia_(linha, disp, mapa) {
+  const direta = fausFinanceiroData_(fausFinanceiroValor_(linha, disp, mapa, 'Competencia'));
+  if (/^\d{4}-\d{2}-\d{2}$/.test(direta)) return direta;
+
+  const mes = Math.floor(fausFinanceiroNumero_(fausFinanceiroValor_(linha, disp, mapa, 'Mes') || direta));
+  const ano = Math.floor(fausFinanceiroNumero_(fausFinanceiroValor_(linha, disp, mapa, 'Ano')));
+  if (ano >= 1900 && mes >= 1 && mes <= 12) {
+    return ano + '-' + ('0' + mes).slice(-2) + '-01';
+  }
+
+  if (/^\d{4}-\d{2}$/.test(direta)) return direta + '-01';
+  return direta;
+}
+
+
+function fausFinanceiroTipo_(v, abaTipo, valor) {
+  const n = String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (n.indexOf('receita') >= 0 || n.indexOf('entrada') >= 0 || n.indexOf('receb') >= 0) return 'Receita';
+  if (n.indexOf('despesa') >= 0 || n.indexOf('saida') >= 0 || n.indexOf('pagar') >= 0 || n.indexOf('custo') >= 0) return 'Despesa';
+  if (abaTipo === 'contas') return 'Despesa';
+  return Number(valor) < 0 ? 'Despesa' : 'Receita';
+}
+
+
+function fausFinanceiroSituacao_(v, tipo, dataPagamento) {
+  const n = String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (n.indexOf('cancel') >= 0) return 'Cancelado';
+  if (dataPagamento || n.indexOf('pago') >= 0 || n.indexOf('quit') >= 0 || n.indexOf('baix') >= 0 || n === 'sim' || n === 'true') {
+    return tipo === 'Receita' ? 'Recebido' : 'Pago';
+  }
+  if (n.indexOf('receb') >= 0) return 'Recebido';
+  if (n.indexOf('venc') >= 0) return 'Vencido';
+  return n ? v : 'Pendente';
+}
+
+
+function fausFinanceiroObjetosAba_(tipo, limiteLinhas) {
+  try {
+    const s = fausFinanceiroAba_(tipo, false);
+    if (!s || s.getLastRow() < 2) return [];
+    const h = headers_(s);
+    if (!h.length) return [];
+    const mapa = fausFinanceiroMapaHeaders_(h);
+    if (mapa.Valor === undefined) {
+      fausFinanceiroStatusErro_('Aba financeira sem coluna de valor reconhecida: ' + s.getName() + '.', { aba: s.getName() });
+      return [];
+    }
+    const totalDados = s.getLastRow() - 1;
+    const qtd = limiteLinhas ? Math.min(totalDados, Math.max(1, Number(limiteLinhas))) : totalDados;
+    const linhaInicial = 2 + (totalDados - qtd);
+    const linhas = s.getRange(linhaInicial, 1, qtd, h.length).getValues();
+    const displays = s.getRange(linhaInicial, 1, qtd, h.length).getDisplayValues();
+    return linhas.map((linha, i) => {
+      const disp = displays[i];
+      const valor = fausFinanceiroNumero_(fausFinanceiroValor_(linha, disp, mapa, 'Valor'));
+      const competencia = fausFinanceiroCompetencia_(linha, disp, mapa);
+      const vencimento = fausFinanceiroData_(fausFinanceiroValor_(linha, disp, mapa, 'Vencimento')) || competencia;
+      const dataPagamento = fausFinanceiroData_(fausFinanceiroValor_(linha, disp, mapa, 'DataPagamento'));
+      const tipoMov = fausFinanceiroTipo_(fausFinanceiroValor_(linha, disp, mapa, 'Tipo'), tipo, valor);
+      const idReal = fausFinanceiroValor_(linha, disp, mapa, 'ID');
+      const registro = {
+        _linha: linhaInicial + i,
+        _financeiroAba: tipo,
+        ID: idReal || ('FIN-' + s.getSheetId() + '-' + (i + 2)),
+        Tipo: tipoMov,
+        Descricao: seguro_(fausFinanceiroValor_(linha, disp, mapa, 'Descricao')),
+        Categoria: seguro_(fausFinanceiroValor_(linha, disp, mapa, 'Categoria')),
+        CentroCusto: seguro_(fausFinanceiroValor_(linha, disp, mapa, 'CentroCusto')),
+        ClienteID: seguro_(fausFinanceiroValor_(linha, disp, mapa, 'ClienteID')),
+        OportunidadeID: seguro_(fausFinanceiroValor_(linha, disp, mapa, 'OportunidadeID')),
+        Maquina: seguro_(fausFinanceiroValor_(linha, disp, mapa, 'Maquina')),
+        Valor: Math.abs(valor),
+        Competencia: competencia,
+        Vencimento: vencimento,
+        Situacao: fausFinanceiroSituacao_(fausFinanceiroValor_(linha, disp, mapa, 'Situacao'), tipoMov, dataPagamento),
+        DataPagamento: dataPagamento,
+        FormaPagamento: seguro_(fausFinanceiroValor_(linha, disp, mapa, 'FormaPagamento')),
+        DocumentoUrl: seguro_(fausFinanceiroValor_(linha, disp, mapa, 'DocumentoUrl')),
+        Observacoes: seguro_(fausFinanceiroValor_(linha, disp, mapa, 'Observacoes')),
+        Ativo: fausFinanceiroValor_(linha, disp, mapa, 'Ativo') || 'Sim',
+        CriadoEm: fausFinanceiroData_(fausFinanceiroValor_(linha, disp, mapa, 'CriadoEm')),
+        AtualizadoEm: fausFinanceiroData_(fausFinanceiroValor_(linha, disp, mapa, 'AtualizadoEm'))
+      };
+      return registro;
+    }).filter(o => {
+      const ativo = String(o.Ativo || 'Sim').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      return ativo !== 'nao' && (o.Descricao || o.Valor || o.Vencimento);
+    });
+  } catch (e) {
+    fausLog_('financeiro leitura falhou', { aba: tipo, erro: e.message });
+    return [];
+  }
+}
+
+
+function fausFinanceiroObjetos_(limiteLancamentos) {
+  const todos = []
+    .concat(fausFinanceiroObjetosAba_('lancamentos', limiteLancamentos))
+    .concat(fausFinanceiroObjetosAba_('contas'));
+  const vistos = {};
+  return todos.filter(x => {
+    const chave = String(x.ID || '');
+    if (chave && !/^FIN-\d+-\d+$/.test(chave)) {
+      if (vistos[chave]) return false;
+      vistos[chave] = true;
+    }
+    return true;
+  });
+}
+
+
+function fausCarregarFinanceiro() {
+  fausFinanceiroResetStatus_();
+  const financeiro = fausFinanceiroObjetos_();
+  return serial_({
+    meta: {
+      financeiroPlanilha: FAUS_FINANCEIRO_STATUS.planilha,
+      financeiroAbas: FAUS_FINANCEIRO_STATUS.abas,
+      financeiroErro: FAUS_FINANCEIRO_STATUS.erros.join(' ')
+    },
+    financeiro: financeiro
+  });
+}
+
+
+function fausFinanceiroGarantirHeader_(s, campo) {
+  let h = headers_(s);
+  const mapa = fausFinanceiroMapaHeaders_(h);
+  if (mapa[campo] !== undefined) return mapa[campo] + 1;
+  const col = h.length + 1;
+  s.getRange(1, col).setValue(campo);
+  return col;
+}
+
+
+function fausFinanceiroInserir_(dados) {
+  return lock_(() => {
+    const s = fausFinanceiroAba_('lancamentos', true);
+    ESQUEMAS.FINANCEIRO.forEach(c => fausFinanceiroGarantirHeader_(s, c));
+    const h = headers_(s);
+    const r = Object.assign({}, dados);
+    const a = agora_();
+    if (!r.ID) r.ID = id_();
+    if (!r.Ativo) r.Ativo = 'Sim';
+    if (!r.CriadoEm) r.CriadoEm = a;
+    r.AtualizadoEm = a;
+    s.appendRow(h.map(k => typeof r[k] === 'string' ? seguro_(r[k]) : (r[k] === undefined ? '' : r[k])));
+    auditar_('APP', 'CRIAR', FAUS.abas.financeiro, r.ID || '', r.Descricao || '', r);
+    return serial_(r);
+  });
+}
+
+
+function fausFinanceiroAtualizar_(id, alt) {
+  return lock_(() => {
+    const tipos = ['lancamentos', 'contas'];
+    for (let i = 0; i < tipos.length; i++) {
+      const tipo = tipos[i];
+      const s = fausFinanceiroAba_(tipo, false);
+      if (!s || s.getLastRow() < 2) continue;
+      let h = headers_(s);
+      let mapa = fausFinanceiroMapaHeaders_(h);
+      let lin = -1;
+      const sint = String(id || '').match(/^FIN-(\d+)-(\d+)$/);
+      if (sint && Number(sint[1]) === Number(s.getSheetId())) {
+        lin = Number(sint[2]);
+      } else if (mapa.ID !== undefined) {
+        const ids = s.getRange(2, mapa.ID + 1, s.getLastRow() - 1, 1).getDisplayValues();
+        ids.some((x, idx) => {
+          if (String(x[0]) === String(id)) {
+            lin = idx + 2;
+            return true;
+          }
+          return false;
+        });
+      }
+      if (lin < 2 || lin > s.getLastRow()) continue;
+      Object.keys(alt || {}).forEach(campo => {
+        const col = fausFinanceiroGarantirHeader_(s, campo);
+        s.getRange(lin, col).setValue(typeof alt[campo] === 'string' ? seguro_(alt[campo]) : alt[campo]);
+      });
+      const colAtualizado = fausFinanceiroGarantirHeader_(s, 'AtualizadoEm');
+      s.getRange(lin, colAtualizado).setValue(agora_());
+      auditar_('APP', 'ATUALIZAR', FAUS.abas.financeiro, id, JSON.stringify(alt), alt);
+      return { ok: true, id: id };
+    }
+    throw new Error('Registro financeiro não encontrado.');
+  });
+}
+
+
+function fausSemanaKey_(v) {
+  const d = v ? new Date(v) : new Date();
+  const dia = d.getDay();
+  const diff = dia === 0 ? -6 : 1 - dia;
+  d.setDate(d.getDate() + diff);
+  return Utilities.formatDate(d, FAUS.timezone, 'yyyy-MM-dd');
+}
+
+
+function fausNormalizarTarefa_(d) {
+  d = d || {};
+  const tipo = String(d.TipoAfazer || d.Tipo || 'comum').toLowerCase();
+  const recTipo = String(d.RecorrenciaTipo || '').toLowerCase();
+  const r = {
+    Titulo: seguro_(d.Titulo || d.TituloAfazer || ''),
+    Descricao: seguro_(d.Descricao || ''),
+    Area: seguro_(d.Area || d.Categoria || 'Gestão'),
+    Prioridade: String(d.Prioridade || '').toLowerCase().indexOf('prior') >= 0 ? 'Prioritário' : 'Normal',
+    Responsavel: seguro_(d.Responsavel || 'Arthur'),
+    Prazo: data_(d.Prazo || d.Data || ''),
+    Status: d.Status || 'Pendente',
+    ClienteID: d.ClienteID || '',
+    OportunidadeID: d.OportunidadeID || '',
+    ProjetoID: seguro_(d.ProjetoID || ''),
+    TipoAfazer: tipo === 'meta' ? 'meta' : (tipo === 'recorrente' ? 'recorrente' : 'comum'),
+    MetaSemanalQtd: tipo === 'meta' ? Math.max(1, Math.floor(numero_(d.MetaSemanalQtd || d.MetaQtd || 1))) : '',
+    RecorrenciaTipo: tipo === 'recorrente' ? (recTipo === 'mensal' ? 'mensal' : 'semanal') : '',
+    RecorrenciaDiasMes: seguro_(d.RecorrenciaDiasMes || ''),
+    RecorrenciaDiasSemana: seguro_(d.RecorrenciaDiasSemana || ''),
+    RecorrenciaInicio: data_(d.RecorrenciaInicio || d.Prazo || d.Data || hoje_()),
+    RecorrenciaFim: data_(d.RecorrenciaFim || ''),
+    Ativo: 'Sim'
+  };
+  if (d.MetaSemanalJson) r.MetaSemanalJson = typeof d.MetaSemanalJson === 'string' ? d.MetaSemanalJson : JSON.stringify(d.MetaSemanalJson);
+  if (d.ConclusoesJson) r.ConclusoesJson = typeof d.ConclusoesJson === 'string' ? d.ConclusoesJson : JSON.stringify(d.ConclusoesJson);
+  if (r.TipoAfazer !== 'meta') r.MetaSemanalQtd = '';
+  if (r.TipoAfazer !== 'recorrente') {
+    r.RecorrenciaTipo = '';
+    r.RecorrenciaDiasMes = '';
+    r.RecorrenciaDiasSemana = '';
+    r.RecorrenciaInicio = '';
+    r.RecorrenciaFim = '';
+  }
+  return r;
+}
+
+
+function fausNormalizarProjeto_(d) {
+  d = d || {};
+  const nome = seguro_(d.Nome || d.Titulo || '');
+  return {
+    Nome: nome,
+    Titulo: nome,
+    Descricao: seguro_(d.Descricao || ''),
+    Status: seguro_(d.Status || 'Ativo'),
+    Cor: seguro_(d.Cor || ''),
+    Ativo: 'Sim'
+  };
+}
+
+
+function fausListarProjetos() {
+  return serial_(objetosExistentes_(FAUS.abas.projetos));
+}
+
+
+function fausSalvarProjeto(d) {
+  d = d || {};
+  const nome = String(d.Nome || d.Titulo || '').trim();
+  if (!nome) throw new Error('Informe o nome do projeto.');
+  const s = ss_().getSheetByName(FAUS.abas.projetos);
+  if (!s) throw new Error('Aba PROJETOS não encontrada.');
+  const normalizado = fausNormalizarProjeto_(d);
+  if (d.ID) return atualizarExistente_(FAUS.abas.projetos, d.ID, normalizado);
+  return inserir_(FAUS.abas.projetos, normalizado, 'APP');
+}
+
+
+function fausExcluirProjeto(id) {
+  if (!id) throw new Error('Projeto não informado.');
+  return atualizarExistente_(FAUS.abas.projetos, id, { Ativo: 'Não' });
+}
+
+
+function fausListarTarefas() {
+  return serial_(fausLerAfazeres_(ss_(), FAUS.abas.tarefas));
+}
+
+function fausLerAfazeres_(ss, nome) {
+  const s = ss.getSheetByName(nome);
+  if (!s) throw new Error('Aba não encontrada: ' + nome + '.');
+  const h = headers_(s);
+  if (!h.includes('ID')) throw new Error('Aba sem coluna ID: ' + nome + '.');
+  if (s.getLastRow() < 2) return [];
+  return s.getRange(2, 1, s.getLastRow() - 1, h.length).getValues()
+    .map((linha, i) => {
+      const item = { _linha: i + 2 };
+      h.forEach((campo, j) => {
+        item[campo] = Object.prototype.toString.call(linha[j]) === '[object Date]' ? data_(linha[j]) : linha[j];
+      });
+      return item;
+    })
+    .filter(item => String(item.Ativo || 'Sim').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() !== 'nao');
+}
+
+function fausCarregarAfazeresAtualizados() {
+  const ss = ss_();
+  return serial_({ tarefas: fausLerAfazeres_(ss, FAUS.abas.tarefas), projetos: fausLerAfazeres_(ss, FAUS.abas.projetos) });
+}
+
+
+// Escrita restrita aos Afazeres. Leitura, alteração dos mapas e gravação
+// compartilham o bloqueio; uma falha ao adquiri-lo nunca autoriza a escrita.
+function fausGravarTarefa_(id, preparar, permitirInativa) {
+  const trava = LockService.getScriptLock();
+  trava.waitLock(10000);
+  try {
+    const s = ss_().getSheetByName(FAUS.abas.tarefas);
+    if (!s) throw new Error('Aba AFAZERES não encontrada.');
+    const h = headers_(s);
+    const colId = h.indexOf('ID');
+    if (colId < 0) throw new Error('Aba AFAZERES sem coluna ID.');
+    let linha = 0;
+    let row = h.map(() => '');
+    if (id) {
+      const total = s.getLastRow() - 1;
+      const ids = total > 0 ? s.getRange(2, colId + 1, total, 1).getDisplayValues() : [];
+      const idx = ids.findIndex(x => String(x[0]) === String(id));
+      if (idx < 0) throw new Error('Afazer não encontrado.');
+      linha = idx + 2;
+      row = s.getRange(linha, 1, 1, h.length).getValues()[0];
+    }
+    const atual = {};
+    h.forEach((campo, i) => { atual[campo] = row[i]; });
+    const ativo = String(atual.Ativo || 'Sim').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (id && ativo === 'nao' && !permitirInativa) throw new Error('Este afazer foi excluído. Atualize a lista.');
+    const alt = preparar(atual);
+    Object.keys(alt).forEach(campo => {
+      if (!h.includes(campo) && alt[campo] !== '' && alt[campo] != null) {
+        throw new Error('Aba AFAZERES sem coluna ' + campo + '. Nenhuma alteração foi gravada.');
+      }
+    });
+    const instante = agora_();
+    if (!id) {
+      alt.ID = id_();
+      if (h.includes('CriadoEm')) alt.CriadoEm = instante;
+    }
+    if (h.includes('AtualizadoEm')) alt.AtualizadoEm = instante;
+    h.forEach((campo, i) => {
+      if (Object.prototype.hasOwnProperty.call(alt, campo)) {
+        row[i] = typeof alt[campo] === 'string' ? seguro_(alt[campo]) : alt[campo];
+      }
+    });
+    if (id) s.getRange(linha, 1, 1, h.length).setValues([row]);
+    else s.appendRow(row);
+    const tarefa = {};
+    h.forEach((campo, i) => {
+      tarefa[campo] = Object.prototype.toString.call(row[i]) === '[object Date]' ? data_(row[i]) : row[i];
+    });
+    auditar_('APP', id ? 'ATUALIZAR' : 'CRIAR', FAUS.abas.tarefas, tarefa.ID,
+      id ? JSON.stringify(alt) : tarefa.Titulo, alt);
+    SpreadsheetApp.flush();
+    // Retornar a linha confirmada elimina a consulta de toda a lista no cliente.
+    const resposta = { ok: true, id: tarefa.ID, tarefa: tarefa };
+    return serial_(id ? resposta : Object.assign({}, tarefa, resposta));
+  } finally {
+    trava.releaseLock();
+  }
+}
+
+
+function fausSalvarTarefa(d) {
+  d = d || {};
+  obrig_(d, ['Titulo']);
+  return fausGravarTarefa_(d.ID, atual => {
+    // Campos ausentes do formulário (descrição, vínculos, fim da recorrência
+    // e históricos) permanecem com os valores já gravados na planilha.
+    const normalizada = fausNormalizarTarefa_(Object.assign({}, atual, d));
+    if (d.ID && !Object.prototype.hasOwnProperty.call(d, 'Status')) delete normalizada.Status;
+    if (!d.ID) {
+      normalizada.Status = normalizada.TipoAfazer === 'meta' ? 'Ativo' : (normalizada.Status || 'Pendente');
+      normalizada.MetaSemanalJson = normalizada.MetaSemanalJson || '{}';
+      normalizada.ConclusoesJson = normalizada.ConclusoesJson || '{}';
+    }
+    return normalizada;
+  });
+}
+
+
+function fausExcluirTarefa(id) {
+  if (!id) throw new Error('Afazer não informado.');
+  return fausGravarTarefa_(id, () => ({ Ativo: 'Não' }), true);
+}
+
+
+function fausAlternarTarefa(id, ocorrenciaData, concluido) {
+  if (!id) throw new Error('Afazer não informado.');
+  return fausGravarTarefa_(id, tarefa => {
+    if (ocorrenciaData) {
+      const conclusoes = fausJson_(tarefa.ConclusoesJson, {});
+      if (concluido === false) delete conclusoes[ocorrenciaData];
+      else conclusoes[ocorrenciaData] = true;
+      return { ConclusoesJson: JSON.stringify(conclusoes) };
+    }
+    return { Status: concluido === false ? 'Pendente' : 'Concluído' };
+  });
+}
+
+
+function fausIncrementarMetaSemanal(id, semanaKey, delta) {
+  if (!id) throw new Error('Meta semanal não informada.');
+  return fausGravarTarefa_(id, tarefa => {
+    const key = semanaKey || fausSemanaKey_(new Date());
+    const qtd = Math.max(1, Math.floor(numero_(tarefa.MetaSemanalQtd || 1)));
+    const mapa = fausJson_(tarefa.MetaSemanalJson, {});
+    const atual = Math.max(0, numero_(mapa[key] || 0));
+    mapa[key] = Math.max(0, Math.min(qtd, atual + numero_(delta || 1)));
+    return { MetaSemanalJson: JSON.stringify(mapa), Status: 'Ativo' };
+  });
+}
+
+
+function fausRegistrarInteracao(d) {
+  d = d || {};
+
+
+  obrig_(d, ['OportunidadeID', 'Descricao']);
+
+
+  const interacao = inserir_('INTERACOES', {
+    OportunidadeID: d.OportunidadeID,
+    ClienteID: d.ClienteID || '',
+    Tipo: d.Tipo || 'Follow-up',
+    Descricao: d.Descricao,
+    DataInteracao: hoje_(),
+    ProximaAcao: d.ProximaAcao || '',
+    DataProximaAcao: d.DataProximaAcao || '',
+    Responsavel: d.Responsavel || 'Arthur'
+  }, 'APP');
+
+
+  atualizar_('OPORTUNIDADES', d.OportunidadeID, {
+    ProximaAcao: d.ProximaAcao || '',
+    DataProximaAcao: d.DataProximaAcao || '',
+    Responsavel: d.Responsavel || 'Arthur'
+  });
+
+
+  return interacao;
+}
+
+
+function fausListarArquivosDrive() {
+  const itens = [];
+  try {
+    const vault = fausObterPastaVault_();
+    if (vault) {
+      const arquivos = vault.getFiles();
+      while (arquivos.hasNext() && itens.length < 25) {
+        const a = arquivos.next();
+        itens.push({
+          id: a.getId(),
+          nome: a.getName(),
+          icone: '📄',
+          url: a.getUrl(),
+          tamanho: a.getSize() ? Math.round(a.getSize() / 1024) + ' KB' : '—'
+        });
+      }
+    }
+  } catch (e) {}
+  return { itens: itens };
+}
+
+
+// ----------------------------------------------------
+// RESUMO & BOOTSTRAP BLINDADO (NUNCA FALHA)
+// ----------------------------------------------------
+
+
+function resumo_(ops, fin) {
+  const hj = hoje_();
+  const mes = hj.slice(0, 7);
+  const ab = (ops || []).filter(x => !FAUS.etapasFinais.includes(String(x.Etapa)));
+  const ven = ab.filter(x => x.DataProximaAcao && data_(x.DataProximaAcao) < hj);
+  const hjA = ab.filter(x => data_(x.DataProximaAcao) === hj);
+  const semAcao = ab.filter(x => !data_(x.DataProximaAcao));
+  const proximasAcoes = ab
+    .filter(x => data_(x.DataProximaAcao) >= hj)
+    .sort((a, b) => String(data_(a.DataProximaAcao)).localeCompare(String(data_(b.DataProximaAcao))))
+    .slice(0, 5);
+  const fec = (ops || []).filter(x => x.Etapa === 'Fechado' && String(x.AtualizadoEm || x.CriadoEm).slice(0, 7) === mes);
+  const situacaoFinanceira_ = x => String(x.Situacao || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const ativos = (fin || []).filter(x => situacaoFinanceira_(x) !== 'cancelado');
+  const mesFinanceiro_ = x => {
+    const base = data_(x.Competencia) || data_(x.DataPagamento) || data_(x.Vencimento) || data_(x.CriadoEm);
+    return base ? String(base).slice(0, 7) : '';
+  };
+  const pagos_ = x => ['pago', 'paga', 'recebido', 'recebida'].includes(situacaoFinanceira_(x));
+  const rec = ativos
+    .filter(x => x.Tipo === 'Receita' && pagos_(x) && mesFinanceiro_(x) === mes)
+    .reduce((t, x) => t + numero_(x.Valor), 0);
+  const des = ativos
+    .filter(x => x.Tipo === 'Despesa' && pagos_(x) && mesFinanceiro_(x) === mes)
+    .reduce((t, x) => t + numero_(x.Valor), 0);
+  const cv = ativos.filter(x => x.Tipo === 'Despesa' && x.Vencimento && data_(x.Vencimento) <= hj && !pagos_(x));
+  const proximasContasPagar = ativos
+    .filter(x => x.Tipo === 'Despesa' && x.Vencimento && data_(x.Vencimento) > hj && !pagos_(x))
+    .sort((a, b) => String(data_(a.Vencimento)).localeCompare(String(data_(b.Vencimento))))
+    .slice(0, 5);
+
+
+  return {
+    acoesVencidas: ven.length,
+    acoesHoje: hjA.length,
+    oportunidadesSemAcao: semAcao.length,
+    proximasAcoes: proximasAcoes,
+    vendasMes: fec.length,
+    receitasMes: rec,
+    despesasMes: des,
+    resultadoMes: rec - des,
+    contasVencidas: cv.length,
+    valorVencido: cv.reduce((t, x) => t + numero_(x.Valor), 0),
+    proximasContasPagar: proximasContasPagar
+  };
+}
+
+
+function fausMontarDashboardPayload_() {
+  fausLog_('fausMontarDashboardPayload inicio');
+
+  const errosBootstrap = [];
+  const etapa_ = (nome, fn, padrao) => {
+    try {
+      return fn();
+    } catch (e) {
+      const msg = nome + ': ' + e.message;
+      errosBootstrap.push(msg);
+      fausLog_('fausBootstrap etapa falhou', { etapa: nome, erro: e.message });
+      return padrao;
+    }
+  };
+
+  const c = etapa_('clientes', () => objetosLimite_('CLIENTES', 300), []);
+  const o = etapa_('oportunidades', () => objetosLimite_('OPORTUNIDADES', 500), []);
+  fausFinanceiroResetStatus_();
+  const f = etapa_('financeiro', () => fausFinanceiroObjetos_(200), []);
+  if (!f.length) {
+    const planilhaNome = FAUS_FINANCEIRO_STATUS.planilha && FAUS_FINANCEIRO_STATUS.planilha.nome;
+    const abasLidas = FAUS_FINANCEIRO_STATUS.abas.map(x => x.nome + ' (' + x.linhas + ' linhas)').join(', ');
+    fausFinanceiroStatusErro_(
+      'Nenhum lançamento financeiro foi lido. Planilha: ' + (planilhaNome || 'não identificada') + '. Abas lidas: ' + (abasLidas || 'nenhuma') + '.',
+      { planilha: planilhaNome, abas: FAUS_FINANCEIRO_STATUS.abas }
+    );
+  }
+  const p = [];
+  const pr = etapa_('projetos', () => objetosExistentes_(FAUS.abas.projetos, 300), []);
+  const m = etapa_('maquinas', () => objetosLimite_('MAQUINAS', 100), []);
+  const t = etapa_('tarefas', () => objetosLimite_(FAUS.abas.tarefas, 400), []);
+
+
+  const nomes = {};
+  c.forEach(x => {
+    nomes[x.ID] = x.Empresa || x.Nome || x.ID;
+  });
+  o.forEach(x => {
+    x.ClienteNome = nomes[x.ClienteID] || 'Sem cliente';
+  });
+  p.forEach(x => {
+    x.ClienteNome = nomes[x.ClienteID] || x.ClienteNome || '';
+  });
+
+
+  const payload = {
+    meta: {
+      nome: FAUS.nome,
+      versao: FAUS.versao,
+      hoje: hoje_(),
+      canais: FAUS.canais,
+      etapas: FAUS.etapas,
+      financeiroPlanilha: FAUS_FINANCEIRO_STATUS.planilha,
+      financeiroAbas: FAUS_FINANCEIRO_STATUS.abas,
+      financeiroErro: FAUS_FINANCEIRO_STATUS.erros.join(' '),
+      bootstrapErro: errosBootstrap.join(' ')
+    },
+    resumo: resumo_(o, f),
+    clientes: c.reverse(),
+    oportunidades: o,
+    financeiro: f,
+    pontos: p,
+    projetos: pr,
+    maquinas: m,
+    tarefas: t,
+    obsidian: null,
+    drive: { itens: [] }
+  };
+  fausLog_('fausMontarDashboardPayload ok', {
+    clientes: c.length,
+    oportunidades: o.length,
+    financeiro: f.length,
+    pontos: p.length,
+    projetos: pr.length,
+    maquinas: m.length,
+    tarefas: t.length
+  });
+  return serial_(payload);
+}
+
+
+function fausPayloadPrecisaProjetos_(payload) {
+  if (!payload) return false;
+  const projetos = Array.isArray(payload.projetos) ? payload.projetos : [];
+  if (projetos.length) return false;
+  const tarefas = Array.isArray(payload.tarefas) ? payload.tarefas : [];
+  return tarefas.some(t => String(t.ProjetoID || '').trim());
+}
+
+
+function fausCompletarProjetosNoPayload_(payload) {
+  if (!payload) return payload;
+  if (!Array.isArray(payload.projetos)) payload.projetos = [];
+  if (fausPayloadPrecisaProjetos_(payload)) {
+    payload.projetos = objetosExistentes_(FAUS.abas.projetos, 300);
+  }
+  return payload;
+}
+
+
+function fausDashboardCacheAba_(criar) {
+  const ss = ss_();
+  let s = ss.getSheetByName(FAUS_DASHBOARD_CACHE.aba);
+  if (!s && criar) {
+    s = ss.insertSheet(FAUS_DASHBOARD_CACHE.aba);
+    s.getRange(1, 1, 1, 2).setValues([['Chave', 'Valor']]);
+    s.setFrozenRows(1);
+  }
+  return s;
+}
+
+
+function fausDashboardCacheSalvar_(payload) {
+  const s = fausDashboardCacheAba_(true);
+  const atualizadoEm = Utilities.formatDate(new Date(), FAUS.timezone, 'yyyy-MM-dd HH:mm:ss');
+  const json = JSON.stringify(serial_(payload));
+  const rows = [
+    ['Chave', 'Valor'],
+    ['AtualizadoEm', atualizadoEm],
+    ['Versao', FAUS.versao],
+    ['Bytes', json.length]
+  ];
+  for (let i = 0; i < json.length; i += FAUS_DASHBOARD_CACHE.chunkSize) {
+    const parte = Math.floor(i / FAUS_DASHBOARD_CACHE.chunkSize) + 1;
+    rows.push(['PayloadJson_' + ('000' + parte).slice(-3), json.slice(i, i + FAUS_DASHBOARD_CACHE.chunkSize)]);
+  }
+  s.clearContents();
+  s.getRange(1, 1, rows.length, 2).setValues(rows);
+  try {
+    if (json.length < 90000) {
+      CacheService.getScriptCache().put(FAUS_DASHBOARD_CACHE.cacheKey, json, FAUS_DASHBOARD_CACHE.ttlSegundos);
+    }
+  } catch (e) {}
+  return { atualizadoEm: atualizadoEm, bytes: json.length, partes: rows.length - 4 };
+}
+
+
+function fausDashboardCacheLer_() {
+  try {
+    const cached = CacheService.getScriptCache().get(FAUS_DASHBOARD_CACHE.cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch (e) {}
+
+  try {
+    const s = fausDashboardCacheAba_(false);
+    if (!s || s.getLastRow() < 2) return null;
+    const rows = s.getRange(2, 1, s.getLastRow() - 1, 2).getDisplayValues();
+    const partes = rows
+      .filter(r => /^PayloadJson_\d+$/.test(String(r[0] || '')))
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+      .map(r => r[1] || '');
+    if (!partes.length) return null;
+    const json = partes.join('');
+    if (json.length < 90000) {
+      try {
+        CacheService.getScriptCache().put(FAUS_DASHBOARD_CACHE.cacheKey, json, FAUS_DASHBOARD_CACHE.ttlSegundos);
+      } catch (e) {}
+    }
+    return JSON.parse(json);
+  } catch (e) {
+    fausLog_('dashboard cache leitura falhou', { erro: e.message });
+    return null;
+  }
+}
+
+
+function fausAtualizarDashboardCache() {
+  const payload = fausMontarDashboardPayload_();
+  const salvo = fausDashboardCacheSalvar_(payload);
+  return serial_(Object.assign({ ok: true }, salvo));
+}
+
+
+function fausInstalarAtualizadorDashboard() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction && t.getHandlerFunction() === 'fausAtualizarDashboardCache') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger('fausAtualizarDashboardCache')
+    .timeBased()
+    .everyMinutes(5)
+    .create();
+  const atualizado = fausAtualizarDashboardCache();
+  return serial_({ ok: true, gatilho: '5 minutos', cache: atualizado });
+}
+
+
+function fausBootstrap() {
+  const payload = fausDashboardCacheLer_();
+  if (payload) return serial_(fausCompletarProjetosNoPayload_(payload));
+  const rapido = fausBootstrapRapido();
+  rapido.meta.dashboardCacheErro = 'Cache ainda não gerado. Rode fausInstalarAtualizadorDashboard no editor do Apps Script.';
+  return serial_(rapido);
+}
+
+
+function fausBootstrapAtualizado() {
+  const payload = fausMontarDashboardPayload_();
+  try {
+    fausDashboardCacheSalvar_(payload);
+  } catch (e) {
+    payload.meta = payload.meta || {};
+    payload.meta.dashboardCacheErro = 'Dados lidos da planilha, mas o cache não foi salvo: ' + e.message;
+    fausLog_('fausBootstrapAtualizado cache falhou', { erro: e.message });
+  }
+  return serial_(payload);
+}
+
+
+function fausBootstrapRapido() {
+  return serial_({
+    meta: {
+      nome: FAUS.nome,
+      versao: FAUS.versao + '-rapido',
+      hoje: hoje_(),
+      canais: FAUS.canais,
+      etapas: FAUS.etapas,
+      bootstrapRapido: true
+    },
+    resumo: resumo_([], []),
+    clientes: [],
+    oportunidades: [],
+    financeiro: [],
+    pontos: [],
+    projetos: [],
+    maquinas: [],
+    tarefas: [],
+    obsidian: null,
+    drive: { itens: [] }
+  });
+}
+
+
+const FAUS_CRM_CANAIS = [
+  'Google Ads',
+  'Google orgânico',
+  'Indicação de operador',
+  'Indicação pessoal',
+  'Relacionamento do pai',
+  'Prospecção ativa',
+  'Outros',
+  'Não identificado'
+];
+
+const FAUS_CRM_STATUS = ['nao_solicitado', 'solicitado', 'enviado', 'aprovado', 'perdido'];
+
+function fausCrmAgoraIso_() {
+  return Utilities.formatDate(new Date(), FAUS.timezone, "yyyy-MM-dd'T'HH:mm:ss");
+}
+
+function fausCrmAdicionarHorasIso_(horas) {
+  const d = new Date();
+  d.setHours(d.getHours() + Number(horas || 0));
+  return Utilities.formatDate(d, FAUS.timezone, "yyyy-MM-dd'T'HH:mm:ss");
+}
+
+function fausCrmValorSerial_(campo, valor) {
+  if (Object.prototype.toString.call(valor) !== '[object Date]') return valor;
+  if (['CriadoEm', 'AtualizadoEm', 'DataProximaAcao'].includes(campo)) {
+    return Utilities.formatDate(valor, FAUS.timezone, "yyyy-MM-dd'T'HH:mm:ss");
+  }
+  return data_(valor);
+}
+
+function fausCrmTexto_(v) {
+  return String(v || '').trim();
+}
+
+function fausCrmNormalizar_(v) {
+  return fausCrmTexto_(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ');
+}
+
+function fausCrmTelefoneKey_(v) {
+  return fausCrmTexto_(v).replace(/\D/g, '');
+}
+
+function fausCrmCanal_(v) {
+  const texto = fausCrmTexto_(v) || 'Não identificado';
+  const achado = FAUS_CRM_CANAIS.find(c => fausCrmNormalizar_(c) === fausCrmNormalizar_(texto));
+  return achado || 'Outros';
+}
+
+function fausCrmStatus_(v) {
+  const status = fausCrmTexto_(v) || 'nao_solicitado';
+  if (!FAUS_CRM_STATUS.includes(status)) throw new Error('Status de orçamento inválido.');
+  return status;
+}
+
+function fausCrmEtapaPorStatus_(status) {
+  return {
+    nao_solicitado: 'Novo lead',
+    solicitado: 'Orçamento necessário',
+    enviado: 'Proposta enviada',
+    aprovado: 'Fechado',
+    perdido: 'Perdido'
+  }[status] || 'Novo lead';
+}
+
+function fausCrmValidarEstrutura_(abas) {
+  const ss = ss_();
+  const out = {};
+  (abas || ['CLIENTES', 'OPORTUNIDADES', 'INTERACOES']).forEach(nome => {
+    const s = ss.getSheetByName(nome);
+    if (!s) throw new Error('Estrutura CRM incompatível: aba ausente ' + nome + '.');
+    const h = headers_(s).filter(String);
+    const obrigatorios = (ESQUEMAS[nome] || []).filter(c => {
+      if (nome === 'CLIENTES') return ['ID', 'Nome', 'Empresa', 'Telefone', 'Status', 'Ativo', 'CriadoEm', 'AtualizadoEm', 'CanalOrigem'].includes(c);
+      if (nome === 'OPORTUNIDADES') return ['ID', 'ClienteID', 'Titulo', 'Servico', 'Canal', 'Etapa', 'ProximaAcao', 'DataProximaAcao', 'MotivoPerda', 'Ativo', 'CriadoEm', 'AtualizadoEm', 'StatusOrcamento', 'ValorOrcamento', 'ValorVendido', 'DataSolicitacaoOrcamento', 'DataEnvioOrcamento', 'DataAprovacaoOrcamento', 'DataPerdaOrcamento'].includes(c);
+      if (nome === 'INTERACOES') return ['ID', 'OportunidadeID', 'ClienteID', 'Tipo', 'Descricao', 'DataInteracao', 'ProximaAcao', 'DataProximaAcao', 'Responsavel', 'CriadoEm'].includes(c);
+      return true;
+    });
+    const faltantes = obrigatorios.filter(c => !h.includes(c));
+    if (faltantes.length) {
+      throw new Error('Estrutura CRM incompatível em ' + nome + ': faltam ' + faltantes.join(', ') + '.');
+    }
+    out[nome] = { sheet: s, headers: h };
+  });
+  return out;
+}
+
+function fausCrmObjetosPlanilha_(ctx, nome) {
+  const info = ctx[nome];
+  const s = info.sheet;
+  const h = info.headers;
+  if (s.getLastRow() < 2) return [];
+  const valores = s.getRange(2, 1, s.getLastRow() - 1, h.length).getValues();
+  return valores.map((linha, i) => {
+    const obj = { _linha: i + 2 };
+    h.forEach((campo, j) => obj[campo] = fausCrmValorSerial_(campo, linha[j]));
+    return obj;
+  }).filter(obj => {
+    if (!Object.prototype.hasOwnProperty.call(obj, 'Ativo')) return true;
+    const ativo = fausCrmNormalizar_(obj.Ativo);
+    return ativo !== 'nao';
+  });
+}
+
+function fausCrmAppend_(ctx, nome, dados, origem) {
+  const info = ctx[nome];
+  const h = info.headers;
+  const r = Object.assign({}, dados);
+  const a = agora_();
+  if (h.includes('ID') && !r.ID) r.ID = id_();
+  if (h.includes('Ativo') && !r.Ativo) r.Ativo = 'Sim';
+  if (h.includes('CriadoEm') && !r.CriadoEm) r.CriadoEm = a;
+  if (h.includes('AtualizadoEm')) r.AtualizadoEm = a;
+  info.sheet.appendRow(h.map(k => typeof r[k] === 'string' ? seguro_(r[k]) : (r[k] === undefined ? '' : r[k])));
+  try {
+    if (ss_().getSheetByName(FAUS.abas.historico)) {
+      auditar_(origem || 'APP', 'CRIAR', nome, r.ID || '', r.Titulo || r.Nome || r.Descricao || '', r);
+    }
+  } catch (e) {}
+  return serial_(r);
+}
+
+function fausCrmUpdate_(ctx, nome, id, alt) {
+  const info = ctx[nome];
+  const h = info.headers;
+  const c = h.indexOf('ID');
+  if (c < 0) throw new Error('Aba sem coluna ID: ' + nome + '.');
+  const ids = info.sheet.getRange(2, c + 1, Math.max(info.sheet.getLastRow() - 1, 1), 1).getDisplayValues();
+  let lin = -1;
+  ids.some((x, i) => {
+    if (String(x[0]) === String(id)) {
+      lin = i + 2;
+      return true;
+    }
+    return false;
+  });
+  if (lin < 0) throw new Error('Registro não encontrado em ' + nome + '.');
+  const row = info.sheet.getRange(lin, 1, 1, h.length).getValues()[0];
+  h.forEach((k, i) => {
+    if (Object.prototype.hasOwnProperty.call(alt, k)) row[i] = typeof alt[k] === 'string' ? seguro_(alt[k]) : alt[k];
+    if (k === 'AtualizadoEm') row[i] = agora_();
+  });
+  info.sheet.getRange(lin, 1, 1, h.length).setValues([row]);
+  try {
+    if (ss_().getSheetByName(FAUS.abas.historico)) {
+      auditar_('APP', 'ATUALIZAR', nome, id, JSON.stringify(serial_(alt)), alt);
+    }
+  } catch (e) {}
+  return { ok: true, id: id };
+}
+
+function fausCarregarCRM() {
+  const ss = ss_();
+  const avisos = [];
+  const camposClientes = [];
+  const camposOportunidades = [];
+  try {
+    const ctx = fausCrmValidarEstrutura_(['CLIENTES', 'OPORTUNIDADES', 'INTERACOES']);
+    camposClientes.push.apply(camposClientes, ctx.CLIENTES.headers);
+    camposOportunidades.push.apply(camposOportunidades, ctx.OPORTUNIDADES.headers);
+  } catch (e) {
+    avisos.push(e.message);
+  }
+
+  const lerAba = (nome, limite) => {
+    const s = ss.getSheetByName(nome);
+    if (!s) {
+      avisos.push('Aba não encontrada: ' + nome);
+      return [];
+    }
+    const h = headers_(s);
+    if (!h.length || s.getLastRow() < 2) return [];
+    const total = s.getLastRow() - 1;
+    const qtd = Math.min(total, Math.max(1, Number(limite || total)));
+    const inicio = 2 + (total - qtd);
+    const valores = s.getRange(inicio, 1, qtd, h.length).getValues();
+    return valores.map((linha, i) => {
+      const obj = { _linha: inicio + i };
+      h.forEach((campo, j) => {
+        obj[campo] = fausCrmValorSerial_(campo, linha[j]);
+      });
+      return obj;
+    }).filter(obj => {
+      if (!Object.prototype.hasOwnProperty.call(obj, 'Ativo')) return true;
+      const ativo = String(obj.Ativo).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      return ativo !== 'nao';
+    });
+  };
+
+  const clientes = lerAba('CLIENTES', 1000);
+  const oportunidades = lerAba('OPORTUNIDADES', 1500);
+  const nomes = {};
+  clientes.forEach(c => {
+    nomes[c.ID] = c.Empresa || c.Nome || c.ID;
+  });
+  oportunidades.forEach(o => {
+    o.ClienteNome = nomes[o.ClienteID] || o.ClienteNome || 'Sem cliente';
+  });
+
+  return serial_({
+    ok: true,
+    readOnly: false,
+    avisos: avisos,
+    meta: {
+      hoje: hoje_(),
+      canais: FAUS_CRM_CANAIS,
+      etapas: FAUS.etapas,
+      camposClientes: camposClientes.length ? camposClientes : (clientes.length ? Object.keys(clientes[0]).filter(k => k !== '_linha') : []),
+      camposOportunidades: camposOportunidades.length ? camposOportunidades : (oportunidades.length ? Object.keys(oportunidades[0]).filter(k => k !== '_linha') : [])
+    },
+    clientes: clientes,
+    oportunidades: oportunidades
+  });
+}
+
+
+function fausSalvarCRMComercial(d) {
+  d = d || {};
+  const nome = fausCrmTexto_(d.Nome);
+  const empresa = fausCrmTexto_(d.Empresa);
+  const telefone = fausCrmTexto_(d.Telefone);
+  const canal = fausCrmCanal_(d.CanalOrigem || d.Canal);
+  const servico = fausCrmTexto_(d.Servico || d.Titulo);
+  const titulo = fausCrmTexto_(d.Titulo || servico || 'Atendimento comercial');
+  if (!nome) throw new Error('Informe o nome do cliente.');
+  if (!canal) throw new Error('Informe o canal de origem.');
+  return lock_(() => {
+    const ctx = fausCrmValidarEstrutura_(['CLIENTES', 'OPORTUNIDADES', 'INTERACOES']);
+    const clientes = fausCrmObjetosPlanilha_(ctx, 'CLIENTES');
+    const telefoneKey = fausCrmTelefoneKey_(telefone);
+    const nomeKey = fausCrmNormalizar_(nome);
+    const empresaKey = fausCrmNormalizar_(empresa);
+    let candidatos = [];
+    if (telefoneKey && telefoneKey.length >= 8) {
+      candidatos = clientes.filter(c => fausCrmTelefoneKey_(c.Telefone) === telefoneKey);
+    } else if (nomeKey) {
+      candidatos = clientes.filter(c => fausCrmNormalizar_(c.Nome) === nomeKey && (!empresaKey || fausCrmNormalizar_(c.Empresa) === empresaKey));
+    }
+    const ids = Array.from(new Set(candidatos.map(c => String(c.ID || '')))).filter(Boolean);
+    if (ids.length > 1) throw new Error('Cliente ambíguo: há mais de um cadastro parecido. Revise CLIENTES antes de gravar.');
+    let cliente = candidatos[0] || null;
+    if (!cliente) {
+      cliente = fausCrmAppend_(ctx, 'CLIENTES', {
+        Nome: nome,
+        Empresa: empresa,
+        Telefone: telefone,
+        Tipo: 'Comercial',
+        Status: 'Ativo',
+        CanalOrigem: canal,
+        Observacoes: fausCrmTexto_(d.Observacoes)
+      }, 'CRM');
+    } else {
+      const altCliente = {};
+      if (empresa && !fausCrmTexto_(cliente.Empresa)) altCliente.Empresa = empresa;
+      if (telefone && !fausCrmTexto_(cliente.Telefone)) altCliente.Telefone = telefone;
+      if (canal && (!fausCrmTexto_(cliente.CanalOrigem) || fausCrmTexto_(cliente.CanalOrigem) === 'Não identificado')) altCliente.CanalOrigem = canal;
+      if (Object.keys(altCliente).length) {
+        fausCrmUpdate_(ctx, 'CLIENTES', cliente.ID, altCliente);
+        cliente = Object.assign({}, cliente, altCliente);
+      }
+    }
+    const oportunidades = fausCrmObjetosPlanilha_(ctx, 'OPORTUNIDADES');
+    const servicoKey = fausCrmNormalizar_(servico || titulo);
+    const duplicada = oportunidades.find(o => {
+      if (String(o.ClienteID || '') !== String(cliente.ID || '')) return false;
+      if (fausCrmNormalizar_(o.Ativo) === 'nao') return false;
+      if (['aprovado', 'perdido'].includes(String(o.StatusOrcamento || ''))) return false;
+      const alvo = fausCrmNormalizar_(o.Servico || o.Titulo);
+      return servicoKey && alvo && alvo === servicoKey;
+    });
+    if (duplicada) {
+      return serial_({ ok: true, reutilizada: true, cliente: cliente, oportunidade: duplicada });
+    }
+    const status = fausCrmStatus_(d.StatusOrcamento || 'nao_solicitado');
+    const oportunidade = fausCrmAppend_(ctx, 'OPORTUNIDADES', {
+      ClienteID: cliente.ID,
+      Titulo: titulo,
+      Servico: servico,
+      Canal: canal,
+      Etapa: fausCrmEtapaPorStatus_(status),
+      StatusOrcamento: status,
+      ValorOrcamento: fausCrmTexto_(d.ValorOrcamento) ? numero_(d.ValorOrcamento) : '',
+      ValorVendido: fausCrmTexto_(d.ValorVendido) ? numero_(d.ValorVendido) : '',
+      Responsavel: fausCrmTexto_(d.Responsavel) || 'Arthur',
+      ProximaAcao: fausCrmTexto_(d.ProximaAcao),
+      DataProximaAcao: fausCrmTexto_(d.DataProximaAcao),
+      MotivoPerda: fausCrmTexto_(d.MotivoPerda)
+    }, 'CRM');
+    return serial_({ ok: true, reutilizada: false, cliente: cliente, oportunidade: oportunidade });
+  });
+}
+
+
+function fausAtualizarOrcamentoCRM(d) {
+  d = d || {};
+  const id = fausCrmTexto_(d.OportunidadeID || d.ID);
+  if (!id) throw new Error('Informe a oportunidade.');
+  const status = fausCrmStatus_(d.StatusOrcamento);
+  return lock_(() => {
+    const ctx = fausCrmValidarEstrutura_(['OPORTUNIDADES', 'INTERACOES']);
+    const oportunidades = fausCrmObjetosPlanilha_(ctx, 'OPORTUNIDADES');
+    const atual = oportunidades.find(o => String(o.ID) === String(id));
+    if (!atual) throw new Error('Oportunidade não encontrada.');
+    const alt = { StatusOrcamento: status, Etapa: fausCrmEtapaPorStatus_(status) };
+    if (fausCrmTexto_(d.ValorOrcamento)) alt.ValorOrcamento = numero_(d.ValorOrcamento);
+    if (fausCrmTexto_(d.ValorVendido)) alt.ValorVendido = numero_(d.ValorVendido);
+    if (fausCrmTexto_(d.MotivoPerda)) alt.MotivoPerda = fausCrmTexto_(d.MotivoPerda);
+    if (status === 'solicitado' && !atual.DataSolicitacaoOrcamento) alt.DataSolicitacaoOrcamento = hoje_();
+    if (status === 'enviado') {
+      if (!atual.DataEnvioOrcamento) alt.DataEnvioOrcamento = fausCrmAgoraIso_();
+      if (!atual.DataProximaAcao) {
+        alt.ProximaAcao = 'Follow-up automático 3h após envio';
+        alt.DataProximaAcao = fausCrmAdicionarHorasIso_(3);
+      }
+    }
+    if (status === 'aprovado' && !atual.DataAprovacaoOrcamento) alt.DataAprovacaoOrcamento = hoje_();
+    if (status === 'perdido' && !atual.DataPerdaOrcamento) alt.DataPerdaOrcamento = hoje_();
+    fausCrmUpdate_(ctx, 'OPORTUNIDADES', id, alt);
+    fausCrmAppend_(ctx, 'INTERACOES', {
+      OportunidadeID: id,
+      ClienteID: atual.ClienteID || '',
+      Tipo: 'Atualização de orçamento',
+      Descricao: 'Status alterado para ' + status,
+      DataInteracao: fausCrmAgoraIso_(),
+      ProximaAcao: alt.ProximaAcao || atual.ProximaAcao || '',
+      DataProximaAcao: alt.DataProximaAcao || atual.DataProximaAcao || '',
+      Responsavel: fausCrmTexto_(d.Responsavel) || atual.Responsavel || 'Arthur'
+    }, 'CRM');
+    return serial_({ ok: true, id: id, alteracoes: alt });
+  });
+}
+
+
+function fausAtualizarAcompanhamentoCRM(d) {
+  d = d || {};
+  const id = fausCrmTexto_(d.OportunidadeID || d.ID);
+  if (!id) throw new Error('Informe a oportunidade.');
+  const acao = fausCrmTexto_(d.ProximaAcao);
+  const data = fausCrmTexto_(d.DataProximaAcao);
+  if (!acao || !data) throw new Error('Informe a próxima ação e a data do acompanhamento.');
+  return lock_(() => {
+    const ctx = fausCrmValidarEstrutura_(['OPORTUNIDADES', 'INTERACOES']);
+    const oportunidades = fausCrmObjetosPlanilha_(ctx, 'OPORTUNIDADES');
+    const atual = oportunidades.find(o => String(o.ID) === String(id));
+    if (!atual) throw new Error('Oportunidade não encontrada.');
+    const alt = { ProximaAcao: acao, DataProximaAcao: data };
+    fausCrmUpdate_(ctx, 'OPORTUNIDADES', id, alt);
+    fausCrmAppend_(ctx, 'INTERACOES', {
+      OportunidadeID: id,
+      ClienteID: atual.ClienteID || '',
+      Tipo: 'Acompanhamento agendado',
+      Descricao: acao,
+      DataInteracao: fausCrmAgoraIso_(),
+      ProximaAcao: acao,
+      DataProximaAcao: data,
+      Responsavel: fausCrmTexto_(d.Responsavel) || atual.Responsavel || 'Arthur'
+    }, 'CRM');
+    return serial_({ ok: true, id: id, alteracoes: alt });
+  });
+}
+
+
+function fausConcluirAcompanhamentoCRM(d) {
+  d = d || {};
+  const id = fausCrmTexto_(d.OportunidadeID || d.ID);
+  if (!id) throw new Error('Informe a oportunidade.');
+  return lock_(() => {
+    const ctx = fausCrmValidarEstrutura_(['OPORTUNIDADES', 'INTERACOES']);
+    const oportunidades = fausCrmObjetosPlanilha_(ctx, 'OPORTUNIDADES');
+    const atual = oportunidades.find(o => String(o.ID) === String(id));
+    if (!atual) throw new Error('Oportunidade não encontrada.');
+    const novaAcao = fausCrmTexto_(d.ProximaAcao);
+    const novaData = fausCrmTexto_(d.DataProximaAcao);
+    const alt = novaAcao && novaData
+      ? { ProximaAcao: novaAcao, DataProximaAcao: novaData }
+      : { ProximaAcao: '', DataProximaAcao: '' };
+    fausCrmUpdate_(ctx, 'OPORTUNIDADES', id, alt);
+    fausCrmAppend_(ctx, 'INTERACOES', {
+      OportunidadeID: id,
+      ClienteID: atual.ClienteID || '',
+      Tipo: 'Follow-up realizado',
+      Descricao: fausCrmTexto_(d.Descricao) || 'Acompanhamento comercial realizado.',
+      DataInteracao: fausCrmAgoraIso_(),
+      ProximaAcao: novaAcao,
+      DataProximaAcao: novaData,
+      Responsavel: fausCrmTexto_(d.Responsavel) || atual.Responsavel || 'Arthur'
+    }, 'CRM');
+    return serial_({ ok: true, id: id, alteracoes: alt });
+  });
+}
+
+
+function fausDiagnosticoFinanceiro() {
+  fausFinanceiroResetStatus_();
+  const financeiro = fausFinanceiroObjetos_();
+  return serial_({
+    ok: financeiro.length > 0,
+    total: financeiro.length,
+    planilha: FAUS_FINANCEIRO_STATUS.planilha,
+    abas: FAUS_FINANCEIRO_STATUS.abas,
+    erros: FAUS_FINANCEIRO_STATUS.erros,
+    amostra: financeiro.slice(0, 5)
+  });
+}
+
+
+function fausDiagnostico() {
+  const info = {
+    ok: true,
+    app: FAUS.nome,
+    versao: FAUS.versao,
+    dataHora: Utilities.formatDate(new Date(), FAUS.timezone, 'yyyy-MM-dd HH:mm:ss'),
+    usuario: '',
+    planilha: null,
+    abas: [],
+    erro: ''
+  };
+  try {
+    info.usuario = Session.getActiveUser().getEmail() || 'sem email visivel';
+  } catch (e) {
+    info.usuario = 'sem permissao para email';
+  }
+  try {
+    const ss = ss_();
+    info.planilha = { id: ss.getId(), nome: ss.getName(), url: ss.getUrl() };
+    info.abas = ss.getSheets().map(s => ({
+      nome: s.getName(),
+      linhas: s.getLastRow(),
+      colunas: s.getLastColumn()
+    }));
+  } catch (e) {
+    info.ok = false;
+    info.erro = e.message;
+  }
+  fausLog_('fausDiagnostico', info);
+  return serial_(info);
+}
+
+
+// ----------------------------------------------------
+// CRUD PONTOS DO MAPA (COM POLIGONOS E AREAS)
+// ----------------------------------------------------
+
+
+function fausSalvarPonto(d) {
+  fausLog_('fausSalvarPonto entrada', d);
+  d = d || {};
+  obrig_(d, ['Nome', 'Tipo', 'Latitude', 'Longitude']);
+  d.Latitude = Number(String(d.Latitude).replace(',', '.'));
+  d.Longitude = Number(String(d.Longitude).replace(',', '.'));
+  if (!Number.isFinite(d.Latitude) || !Number.isFinite(d.Longitude)) {
+    throw new Error('Coordenadas inválidas.');
+  }
+  d.Status = d.Status || 'Ativo';
+  if (d.ID) {
+    return atualizar_('PONTOS_MAPA', d.ID, d);
+  }
+  return inserir_('PONTOS_MAPA', d, 'APP');
+}
+
+
+function fausExcluirPonto(id) {
+  fausLog_('fausExcluirPonto entrada', { id: id });
+  return atualizar_('PONTOS_MAPA', id, { Ativo: 'Não' });
+}
+
+
+function fausSalvarCliente(d) {
+  d = d || {};
+  if (!String(d.Nome || '').trim() && !String(d.Empresa || '').trim()) throw new Error('Informe nome ou empresa.');
+  d.Status = d.Status || 'Ativo';
+  return inserir_('CLIENTES', d, 'APP');
+}
+
+
+function fausSalvarOportunidade(d) {
+  d = d || {};
+  obrig_(d, ['Titulo']);
+  return inserir_('OPORTUNIDADES', d, 'APP');
+}
+
+
+function fausSalvarFinanceiro(d) {
+  fausLog_('fausSalvarFinanceiro entrada', d);
+  d = d || {};
+  obrig_(d, ['Tipo', 'Descricao', 'Valor', 'Vencimento']);
+  d.Valor = numero_(d.Valor);
+  d.Situacao = d.Situacao || 'Pendente';
+  return fausFinanceiroInserir_(d);
+}
+
+
+function fausAtualizarFinanceiro(id, a) {
+  fausLog_('fausAtualizarFinanceiro entrada', { id: id, alteracoes: a });
+  return fausFinanceiroAtualizar_(id, a || {});
+}
+
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('FAUS OS')
+    .addItem('Preparar Planilha', 'fausPrepararPlanilha')
+    .addToUi();
+}
+
+
+function fausPrepararPlanilha() {
+  const ss = ss_();
+  Object.keys(ESQUEMAS).forEach(n => {
+    let s = ss.getSheetByName(n);
+    if (!s) s = ss.insertSheet(n);
+    const esp = ESQUEMAS[n];
+    if (s.getLastRow() === 0) {
+      s.getRange(1, 1, 1, esp.length).setValues([esp]);
+    } else {
+      const at = headers_(s).filter(String);
+      const falt = esp.filter(c => !at.includes(c));
+      if (falt.length) s.getRange(1, at.length + 1, 1, falt.length).setValues([falt]);
+    }
+    s.setFrozenRows(1);
+    s.getRange(1, 1, 1, s.getLastColumn()).setBackground('#0d2019').setFontColor('#FFFFFF').setFontWeight('bold');
+  });
+  return { ok: true };
+}
+
+
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('FAUS OS')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
